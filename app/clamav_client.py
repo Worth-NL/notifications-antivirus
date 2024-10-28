@@ -7,17 +7,16 @@ AV_MODE_SOCKET = "SOCKET"
 
 class ClamavClient:
     def ___init__(self):
-        current_app.logger.debug("ClamAV client starting...")
+        current_app.logger.info("ClamAV client starting...")
         self.mode = current_app.config.get("ANTIVIRUS_MODE")
         self.host = current_app.config.get("ANTIVIRUS_HOST")
         self.port = current_app.config.get("ANTIVIRUS_PORT")
-        current_app.logger.debug("ClamAV client initialized")
+        current_app.logger.info("ClamAV client initialized in %s mode", self.mode)
 
     def get_connection(self):
         cd = clamd.ClamdUnixSocket()
 
         if self.mode is AV_MODE_NETWORK and self.host is not None and self.port is not None:
-            current_app.logger.debug("ClamAV client set to NETWORK mode")
             cd = clamd.ClamdNetworkSocket(host=self.host, port=self.port)
 
         return cd
@@ -28,7 +27,7 @@ class ClamavClient:
 
         try:
             cd.ping()
-        except clamd.ClamdError as err:
+        except clamd.ClamdError as err: #FIXME General exception should be caught once connection is corrected
             current_app.logger.error("ClamAV error :: %s", err)
             return False
 
@@ -47,7 +46,7 @@ class ClamavClient:
                 return True
         except Exception as err:
             current_app.logger.error("Error during scan :: %s", err)
-            return True
+            return True #FIXME: Must return false once connection is corrected
 
 
 def clamav_scan(stream):
