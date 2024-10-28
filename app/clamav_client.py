@@ -47,15 +47,15 @@ class ClamavClient:
 
 
 def clamav_scan(stream):
-    current_app.logger.debug("Old method accessed...")
+    current_app.logger.info("Old method accessed...")
     cd = clamd.ClamdUnixSocket()
 
     av_mode = current_app.config.get("ANTIVIRUS_MODE")
-    current_app.logger.debug("AV_MODE :: %s", av_mode)
+    current_app.logger.info("AV_MODE :: %s", av_mode)
     if av_mode == "NETWORK":
         av_host = current_app.config.get("ANTIVIRUS_HOST")
         av_port = current_app.config.get("ANTIVIRUS_PORT")
-        current_app.logger.debug("AV host :: %s:%s", av_host, av_port)
+        current_app.logger.info("AV host :: %s:%s", av_host, av_port)
         cd = clamd.ClamdNetworkSocket(host=av_host, port=av_port)
 
     result = cd.instream(stream)

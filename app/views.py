@@ -23,20 +23,21 @@ def status():
 def verify_token(token):
     api_key = current_app.config["ANTIVIRUS_API_KEY"]
     is_valid = token == api_key
-    current_app.logger.debug("Token verification :: %s :: %s :: %s", token, api_key, is_valid)
+    current_app.logger.info("Token verification :: %s :: %s :: %s", token, api_key, is_valid)
     return is_valid
 
 
 @main_blueprint.route("/scan", methods=["POST"])
 @auth.login_required
 def scan_document():
-    current_app.logger.debug("/scan")
+    current_app.logger.info("/scan")
     if "document" not in request.files:
+        current_app.logger.error("No document uploaded.")
         return jsonify(error="No document upload"), 400
 
     result = cli.scan(request.files["document"])
     response = jsonify(ok=result)
 
-    current_app.logger.debug(response)
+    current_app.logger.info("Response :: %s", response)
 
     return response
