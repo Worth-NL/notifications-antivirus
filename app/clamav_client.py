@@ -15,8 +15,10 @@ class ClamavClient:
 
     def get_connection(self):
         cd = clamd.ClamdUnixSocket()
+        current_app.logger.info("Returning ClamAV connection")
 
         if self.mode is AV_MODE_NETWORK and self.host is not None and self.port is not None:
+            current_app.logger.info("Overriding ClamAV connection mode")
             cd = clamd.ClamdNetworkSocket(host=self.host, port=self.port)
 
         return cd
@@ -27,7 +29,7 @@ class ClamavClient:
 
         try:
             cd.ping()
-        except clamd.ClamdError as err: #FIXME General exception should be caught once connection is corrected
+        except clamd.ClamdError as err:
             current_app.logger.error("ClamAV error :: %s", err)
             return False
 
@@ -46,7 +48,7 @@ class ClamavClient:
                 return True
         except Exception as err:
             current_app.logger.error("Error during scan :: %s", err)
-            return True #FIXME: Must return false once connection is corrected
+            return False
 
 
 def clamav_scan(stream):
