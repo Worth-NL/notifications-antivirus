@@ -23,7 +23,7 @@ class ClamavClient:
         return cd
 
     def ping(self):
-        current_app.logger.debug("ping")
+        current_app.logger.debug("Function (ping)")
         cd = self.get_connection()
 
         try:
@@ -35,14 +35,18 @@ class ClamavClient:
         return True
 
     def scan(self, stream):
-        current_app.logger.debug("scan")
-        cd = self.get_connection()
-        result = cd.instream(stream)
+        current_app.logger.info("Function (scan)")
 
-        if result["stream"][0] == "FOUND":
-            current_app.logger.warning("VIRUS FOUND %s", result["stream"][1])
-            return False
-        else:
+        try:
+            cd = self.get_connection()
+            result = cd.instream(stream)
+            if result["stream"][0] == "FOUND":
+                current_app.logger.warning("VIRUS FOUND %s", result["stream"][1])
+                return False
+            else:
+                return True
+        except Exception as err:
+            current_app.logger.error("Error during scan :: %s", err)
             return True
 
 
