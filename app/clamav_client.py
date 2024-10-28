@@ -7,21 +7,17 @@ AV_MODE_SOCKET = "SOCKET"
 
 class ClamavClient:
     def __init__(self):
-        current_app.logger.info("ClamAV client starting...")
         self.mode = current_app.config["ANTIVIRUS_MODE"]
         self.host = current_app.config["ANTIVIRUS_HOST"]
         self.port = current_app.config["ANTIVIRUS_PORT"]
-        current_app.logger.info("ClamAV client initialized in %s mode :: %s : %s", self.mode, self.host, self.port)
 
     def get_connection(self):
-        cd = clamd.ClamdUnixSocket()
-        current_app.logger.info("Returning ClamAV connection")
-
-        if self.mode is AV_MODE_NETWORK and self.host is not None and self.port is not None:
-            current_app.logger.info("Overriding ClamAV connection mode")
-            cd = clamd.ClamdNetworkSocket(host=self.host, port=self.port)
-
-        return cd
+        if self.mode == AV_MODE_NETWORK and self.host and self.port:
+            current_app.logger.info("Returning ClamAV connection :: %s :: %s :: %s", self.mode, self.host, self.port)
+            return clamd.ClamdNetworkSocket(host=self.host, port=self.port)
+        else:
+            current_app.logger.info("Returning ClamAV connection :: %s", AV_MODE_SOCKET)
+            return clamd.ClamdUnixSocket()
 
     def ping(self):
         current_app.logger.debug("Function (ping)")
