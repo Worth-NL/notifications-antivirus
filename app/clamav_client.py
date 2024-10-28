@@ -11,7 +11,7 @@ class ClamavClient:
         self.mode = current_app.config["ANTIVIRUS_MODE"]
         self.host = current_app.config["ANTIVIRUS_HOST"]
         self.port = current_app.config["ANTIVIRUS_PORT"]
-        current_app.logger.info("ClamAV client initialized in %s mode", self.mode)
+        current_app.logger.info("ClamAV client initialized in %s mode :: %s : %s", self.mode, self.host, self.port)
 
     def get_connection(self):
         cd = clamd.ClamdUnixSocket()

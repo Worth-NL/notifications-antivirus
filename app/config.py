@@ -35,8 +35,8 @@ class Config(object):
     ANTIVIRUS_API_KEY = os.getenv("ANTIVIRUS_API_KEY")
 
     ANTIVIRUS_MODE = os.getenv("ANTIVIRUS_MODE", "SOCKET")
-    ANTIVIRUS_HOST = os.getenv("ANTIVIRUS_HOST", "127.0.0.1")
-    ANTIVIRUS_PORT = os.getenv("ANTIVIRUS_HOST", 3310)
+    ANTIVIRUS_HOST = os.getenv("CLAMAV_SERVICE_HOST", "127.0.0.1")
+    ANTIVIRUS_PORT = os.getenv("CLAMAV_SERVICE_PORT", 3310)
 
     CELERY = {
         "broker_url": "https://sqs.eu-west-1.amazonaws.com",
