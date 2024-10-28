@@ -8,9 +8,9 @@ AV_MODE_SOCKET = "SOCKET"
 class ClamavClient:
     def __init__(self):
         current_app.logger.info("ClamAV client starting...")
-        self.mode = current_app.config.get("ANTIVIRUS_MODE")
-        self.host = current_app.config.get("ANTIVIRUS_HOST")
-        self.port = current_app.config.get("ANTIVIRUS_PORT")
+        self.mode = current_app.config["ANTIVIRUS_MODE"]
+        self.host = current_app.config["ANTIVIRUS_HOST"]
+        self.port = current_app.config["ANTIVIRUS_PORT"]
         current_app.logger.info("ClamAV client initialized in %s mode", self.mode)
 
     def get_connection(self):

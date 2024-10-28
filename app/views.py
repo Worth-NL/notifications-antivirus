@@ -7,12 +7,11 @@ main_blueprint = Blueprint("main", __name__, url_prefix="")
 
 auth = HTTPTokenAuth()
 
-cli = ClamavClient()
-
 
 @main_blueprint.route("/_status")
 def status():
     current_app.logger.debug("/_status")
+    cli = ClamavClient()
     if cli.ping():
         return "ok", 200
     else:
@@ -35,6 +34,7 @@ def scan_document():
         current_app.logger.error("No document uploaded.")
         return jsonify(error="No document upload"), 400
 
+    cli = ClamavClient()
     result = cli.scan(request.files["document"])
     response = jsonify(ok=result)
 
