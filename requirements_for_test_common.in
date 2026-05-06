@@ -1,0 +1,12 @@
+# This file was automatically copied from notifications-utils@115.0.1
+
+beautifulsoup4
+pytest
+pytest-env
+pytest-mock
+pytest-xdist
+pytest-testmon
+requests-mock
+freezegun
+
+ruff==0.15.2  # Also update `.pre-commit-config.yaml` if this changes

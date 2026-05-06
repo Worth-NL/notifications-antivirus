@@ -1,14 +1,32 @@
-clamd==1.0.2
-Flask==2.3.2
-celery[sqs]==5.2.6
-Flask-HTTPAuth==4.8.0
-gunicorn==20.1.0
+clamd~=1.0
+celery[sqs]~=5.6
+
+# Pin kombu to merge of PR #2342 (SQS fair queue / MessageGroupId support) until kombu 5.7 is released
+kombu @ git+https://github.com/celery/kombu.git@860e40a6c904c4d8551577d9f4e8c00f03b6e06c
+Flask-HTTPAuth~=4.8
 
 # Run `make bump-utils` to update to the latest version
-notifications-utils @ git+https://github.com/alphagov/notifications-utils.git@77.1.1
+notifications-utils @ git+https://github.com/alphagov/notifications-utils.git@115.0.1
 
-# gds-metrics requires prometheseus 0.2.0, override that requirement as later versions bring significant performance gains
-prometheus-client==0.15.0
 git+https://github.com/alphagov/gds_metrics_python.git@6f1840a57b6fb1ee40b7e84f2f18ec229de8aa72
 
-sentry_sdk[flask,celery]>=1.0.0,<2.0.0
+sentry_sdk[flask,celery]~=1.45
+
+opentelemetry-distro[otlp]
+opentelemetry-instrumentation-asyncio
+opentelemetry-instrumentation-dbapi
+opentelemetry-instrumentation-logging
+opentelemetry-instrumentation-sqlite3
+opentelemetry-instrumentation-threading
+opentelemetry-instrumentation-urllib
+opentelemetry-instrumentation-wsgi
+opentelemetry-instrumentation-boto3sqs
+opentelemetry-instrumentation-botocore
+opentelemetry-instrumentation-celery
+opentelemetry-instrumentation-click
+opentelemetry-instrumentation-flask
+opentelemetry-instrumentation-grpc
+opentelemetry-instrumentation-jinja2
+opentelemetry-instrumentation-redis
+opentelemetry-instrumentation-requests
+opentelemetry-instrumentation-urllib3

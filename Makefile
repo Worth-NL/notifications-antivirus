@@ -12,6 +12,8 @@ DOCKER_IMAGE = ghcr.io/alphagov/notify/notifications-antivirus
 DOCKER_IMAGE_TAG = $(shell git describe --always --dirty)
 DOCKER_IMAGE_NAME = ${DOCKER_IMAGE}:${DOCKER_IMAGE_TAG}
 
+EXCLUDE_REQUIREMENTS_NEWER_THAN_DAYS ?= 7
+
 
 .PHONY: help
 help:
@@ -26,13 +28,23 @@ generate-version-file:
 
 .PHONY: bootstrap
 bootstrap: generate-version-file
-	pip install -r requirements_for_test.txt
-	python -c "from notifications_utils.version_tools import copy_pyproject_toml; copy_pyproject_toml()"
+	uv pip install -r requirements_for_test.txt
 
 .PHONY: freeze-requirements
 freeze-requirements: ## create static requirements.txt
-	pip install --upgrade pip-tools
-	pip-compile requirements.in
+	uv pip compile requirements.in -o requirements.txt $(EXTRA_UV_PIP_COMPILE_FLAGS)
+	uv pip sync requirements.txt
+	python -c "from notifications_utils.version_tools import copy_config; copy_config()"
+	uv pip compile requirements_for_test.in -o requirements_for_test.txt $(EXTRA_UV_PIP_COMPILE_FLAGS)
+	uv pip sync requirements_for_test.txt
+
+.PHONY: refreeze-requirements
+refreeze-requirements: ## Upgrade unpinned requirements
+	EXTRA_UV_PIP_COMPILE_FLAGS="--upgrade --exclude-newer $(EXCLUDE_REQUIREMENTS_NEWER_THAN_DAYS)d" make freeze-requirements
+
+.PHONY: show-outdated-requirements
+show-outdated-requirements: ## Audit requirements.in
+	python -c "from notifications_utils.version_tools import show_outdated_requirements; show_outdated_requirements()"
 
 .PHONY: bump-utils
 bump-utils:  # Bump notifications-utils package to latest version
@@ -42,7 +54,7 @@ bump-utils:  # Bump notifications-utils package to latest version
 
 .PHONY: bootstrap-with-docker
 bootstrap-with-docker: generate-version-file # Setup environment to run app commands
-	docker build --build-arg BASE_IMAGE=base -f docker/Dockerfile --target test -t notifications-antivirus --build-arg CLAMAV_USE_MIRROR=false .
+	docker build -f docker/Dockerfile --target test -t notifications-antivirus --build-arg CLAMAV_USE_MIRROR=false .
 
 .PHONY: run-celery-with-docker
 run-celery-with-docker: ## Run celery in Docker container
@@ -53,11 +65,14 @@ run-celery-with-docker: ## Run celery in Docker container
 run-flask-with-docker: ## Run flask in Docker container
 	export DOCKER_ARGS="-p 127.0.0.1:6016:6016" && ./scripts/run_with_docker.sh ./scripts/run_app.sh
 
-.PHONY: test
-test: ## Run tests (used by Concourse)
+.PHONY: lint
+lint: ## Run static analysis
 	ruff check .
-	black --check .
-	PYTHONPATH=. pytest
+	ruff format --check .
+
+.PHONY: test
+test: lint ## Run tests (used by Concourse)
+	pytest --maxfail=10 tests/
 
 .PHONY: test-with-docker
 test-with-docker: ## Run tests in Docker container
@@ -68,4 +83,4 @@ upload-to-docker-registry: ## Upload the current version of the docker image to 
 	$(if ${DOCKER_USER_NAME},,$(error Must specify DOCKER_USER_NAME))
 	$(if ${CF_DOCKER_PASSWORD},,$(error Must specify CF_DOCKER_PASSWORD))
 	@docker login ${DOCKER_IMAGE} -u ${DOCKER_USER_NAME} -p ${CF_DOCKER_PASSWORD}
-	docker buildx build --build-arg BASE_IMAGE=base --platform linux/amd64 --push -f docker/Dockerfile -t ${DOCKER_IMAGE_NAME} .
+	docker buildx build --platform linux/amd64 --push -f docker/Dockerfile -t ${DOCKER_IMAGE_NAME} .
