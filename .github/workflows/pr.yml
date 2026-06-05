@@ -38,6 +38,8 @@ jobs:
 
     env:
       ANTIVIRUS_MODE: "NETWORK"
+      CLAMAV_SERVICE_HOST: "clamav"
+      CLAMAV_SERVICE_PORT: "3310"
 
     permissions:
       contents: read
