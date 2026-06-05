@@ -25,21 +25,8 @@ jobs:
       matrix:
         python-version: ["3.11"]
 
-    services:
-      clamav:
-        image: mkodockx/docker-clamav:alpine
-        ports:
-          - 3310:3310
-        options: >-
-          --health-cmd "echo PING | nc localhost 3310"
-          --health-interval 15s
-          --health-timeout 10s
-          --health-retries 20
-
     env:
       ANTIVIRUS_MODE: "NETWORK"
-      CLAMAV_SERVICE_HOST: "clamav"
-      CLAMAV_SERVICE_PORT: "3310"
 
     permissions:
       contents: read
@@ -57,6 +44,15 @@ jobs:
         with:
           packages: build-essential git libcurl4-openssl-dev curl libssl-dev
           install-recommends: false
+
+      - name: Start ClamAV daemon clamd
+        uses: toblux/start-clamd-github-action@v0.2.1
+
+      - name: Ping clamd on TCP port 3310
+        run: echo PING | nc localhost 3310
+
+      - name: Ping clamd using the Unix socket
+        run: echo PING | nc -U /tmp/clamd.socket
 
       - uses: astral-sh/setup-uv@v6
         with:
