@@ -10,7 +10,11 @@ class ClamavClient:
         self.mode = current_app.config["ANTIVIRUS_MODE"]
         self.host = current_app.config["ANTIVIRUS_HOST"]
         self.port = int(current_app.config["ANTIVIRUS_PORT"])
-        self.cli = ClamdNetworkSocket(host=self.host, port=self.port) if self.mode == AV_MODE_NETWORK and self.host and self.port else ClamdUnixSocket()
+        self.cli = (
+            ClamdNetworkSocket(host=self.host, port=self.port)
+            if self.mode == AV_MODE_NETWORK and self.host and self.port
+            else ClamdUnixSocket()
+        )
 
     def ping(self):
         current_app.logger.debug("Function (ping)")

@@ -24,7 +24,9 @@ def scan_file(self, filename):
             task_name = "process-virus-scan-failed"
             current_app.logger.info("VIRUS FOUND for file: %s", filename)
 
-        current_app.logger.info("Calling task: %s to process %s on API", task_name, filename)
+        current_app.logger.info(
+            "Calling task: %s to process %s on API", task_name, filename
+        )
         notify_celery.send_task(
             name=task_name,
             kwargs={"filename": filename},
@@ -35,7 +37,9 @@ def scan_file(self, filename):
             current_app.logger.exception("Scanning error file: %s %s", filename, e)
             self.retry(queue=QueueNames.ANTIVIRUS)
         except self.MaxRetriesExceededError:
-            current_app.logger.exception("MAX RETRY EXCEEDED: Task scan_file failed for file: %s", filename)
+            current_app.logger.exception(
+                "MAX RETRY EXCEEDED: Task scan_file failed for file: %s", filename
+            )
 
             notify_celery.send_task(
                 name="process-virus-scan-error",

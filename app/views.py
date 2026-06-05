@@ -22,7 +22,9 @@ def status():
 def verify_token(token):
     api_key = current_app.config["ANTIVIRUS_API_KEY"]
     is_valid = token == api_key
-    current_app.logger.info("Token verification :: %s :: %s :: %s", token, api_key, is_valid)
+    current_app.logger.info(
+        "Token verification :: %s :: %s :: %s", token, api_key, is_valid
+    )
     return is_valid
 
 
