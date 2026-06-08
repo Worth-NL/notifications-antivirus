@@ -11,7 +11,13 @@ auth = HTTPTokenAuth()
 @main_blueprint.route("/_status")
 def status():
     current_app.logger.debug("/_status")
-    cli = ClamavClient()
+
+    av_mode = current_app.config["ANTIVIRUS_MODE"]
+    av_host = current_app.config["ANTIVIRUS_HOST"]
+    av_port = current_app.config["ANTIVIRUS_PORT"]
+
+    cli = ClamavClient(av_mode, av_host, av_port)
+
     if cli.ping():
         return "ok", 200
     else:
@@ -36,7 +42,12 @@ def scan_document():
         current_app.logger.error("No document uploaded.")
         return jsonify(error="No document upload"), 400
 
-    cli = ClamavClient()
+    av_mode = current_app.config["ANTIVIRUS_MODE"]
+    av_host = current_app.config["ANTIVIRUS_HOST"]
+    av_port = current_app.config["ANTIVIRUS_PORT"]
+
+    cli = ClamavClient(av_mode, av_host, av_port)
+
     result = cli.scan(request.files["document"])
     response = jsonify(ok=result)
 

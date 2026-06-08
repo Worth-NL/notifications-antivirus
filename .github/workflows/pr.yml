@@ -25,9 +25,6 @@ jobs:
       matrix:
         python-version: ["3.11"]
 
-    env:
-      ANTIVIRUS_MODE: "NETWORK"
-
     permissions:
       contents: read
       actions: read

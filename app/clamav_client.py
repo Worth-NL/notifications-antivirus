@@ -6,10 +6,12 @@ AV_MODE_SOCKET = "SOCKET"
 
 
 class ClamavClient:
-    def __init__(self):
-        self.mode = current_app.config["ANTIVIRUS_MODE"]
-        self.host = current_app.config["ANTIVIRUS_HOST"]
-        self.port = int(current_app.config["ANTIVIRUS_PORT"])
+    def __init__(
+        self, mode: str = AV_MODE_SOCKET, host: str = "127.0.0.1", port: int = 3310
+    ):
+        self.mode = mode
+        self.host = host
+        self.port = port
         self.cli = (
             ClamdNetworkSocket(host=self.host, port=self.port)
             if self.mode == AV_MODE_NETWORK and self.host and self.port
