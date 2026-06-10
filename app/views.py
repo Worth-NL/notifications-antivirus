@@ -1,8 +1,7 @@
-import clamd
 from flask import Blueprint, current_app, jsonify, request
 from flask_httpauth import HTTPTokenAuth
 
-from app.clamav_client import clamav_scan
+from app.clamav_client import ClamavClient
 
 main_blueprint = Blueprint("main", __name__, url_prefix="")
 
@@ -11,25 +10,47 @@ auth = HTTPTokenAuth()
 
 @main_blueprint.route("/_status")
 def status():
-    try:
-        clamd.ClamdUnixSocket().ping()
-    except Exception:
-        return "", 500
+    current_app.logger.debug("/_status")
 
-    return "ok", 200
+    av_mode = current_app.config["ANTIVIRUS_MODE"]
+    av_host = current_app.config["ANTIVIRUS_HOST"]
+    av_port = current_app.config["ANTIVIRUS_PORT"]
+
+    cli = ClamavClient(av_mode, av_host, av_port)
+
+    if cli.ping():
+        return "ok", 200
+    else:
+        return "", 500
 
 
 @auth.verify_token
 def verify_token(token):
-    return token == current_app.config["ANTIVIRUS_API_KEY"]
+    api_key = current_app.config["ANTIVIRUS_API_KEY"]
+    is_valid = token == api_key
+    current_app.logger.info(
+        "Token verification :: %s :: %s :: %s", token, api_key, is_valid
+    )
+    return is_valid
 
 
 @main_blueprint.route("/scan", methods=["POST"])
 @auth.login_required
 def scan_document():
+    current_app.logger.info("/scan")
     if "document" not in request.files:
+        current_app.logger.error("No document uploaded.")
         return jsonify(error="No document upload"), 400
 
-    result = clamav_scan(request.files["document"])
+    av_mode = current_app.config["ANTIVIRUS_MODE"]
+    av_host = current_app.config["ANTIVIRUS_HOST"]
+    av_port = current_app.config["ANTIVIRUS_PORT"]
 
-    return jsonify(ok=result)
+    cli = ClamavClient(av_mode, av_host, av_port)
+
+    result = cli.scan(request.files["document"])
+    response = jsonify(ok=result)
+
+    current_app.logger.info("Response :: %s", response)
+
+    return response

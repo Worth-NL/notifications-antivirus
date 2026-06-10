@@ -1,13 +1,51 @@
-import clamd
+from clamd import ClamdNetworkSocket, ClamdUnixSocket, ClamdError
 from flask import current_app
 
+AV_MODE_NETWORK = "NETWORK"
+AV_MODE_SOCKET = "SOCKET"
 
-def clamav_scan(stream):
-    cd = clamd.ClamdUnixSocket()
-    result = cd.instream(stream)
 
-    if result["stream"][0] == "FOUND":
-        current_app.logger.info("VIRUS FOUND %s", result["stream"][1])
-        return False
-    else:
+class ClamavClient:
+    def __init__(
+        self, mode: str = AV_MODE_SOCKET, host: str = "127.0.0.1", port: int = 3310
+    ):
+        self.mode = mode
+        self.host = host
+        self.port = port
+        self.cli = (
+            ClamdNetworkSocket(host=self.host, port=self.port)
+            if self.mode == AV_MODE_NETWORK and self.host and self.port
+            else ClamdUnixSocket()
+        )
+
+    def ping(self):
+        current_app.logger.debug("Function (ping)")
+
+        try:
+            self.cli.ping()
+        except ClamdError as err:
+            current_app.logger.error("ClamAV error :: %s", err)
+            return False
+        except Exception as err:
+            current_app.logger.error("Unexpected error :: %s", err)
+            return False
+
         return True
+
+    def scan(self, stream):
+        current_app.logger.info("Function (scan)")
+
+        try:
+            result = self.cli.instream(stream)
+            current_app.logger.info("Scan result :: %s", result)
+            if result["stream"][0] == "FOUND":
+                current_app.logger.warning("VIRUS FOUND %s", result["stream"][1])
+                return False
+            else:
+                return True
+        except ClamdError as err:
+            current_app.logger.error("ClamAV error :: %s", err)
+            return False
+        except Exception as err:
+            current_app.logger.error("Unexpected error :: %s", err)
+            return False
