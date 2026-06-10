@@ -26,17 +26,12 @@ class Config(object):
     ###########################
     # Default config values ###
     ###########################
-
     NOTIFY_APP_NAME = "antivirus"
     AWS_REGION = os.getenv("AWS_REGION", "eu-west-1")
 
     NOTIFY_REQUEST_LOG_LEVEL = os.getenv("NOTIFY_REQUEST_LOG_LEVEL", "INFO")
 
     ANTIVIRUS_API_KEY = os.getenv("ANTIVIRUS_API_KEY")
-
-    ANTIVIRUS_MODE = os.getenv("ANTIVIRUS_MODE", "SOCKET")
-    ANTIVIRUS_HOST = os.getenv("CLAMAV_SERVICE_HOST", "127.0.0.1")
-    ANTIVIRUS_PORT = int(os.getenv("CLAMAV_SERVICE_PORT", 3310))
 
     CELERY = {
         "broker_url": "https://sqs.eu-west-1.amazonaws.com",
@@ -65,8 +60,6 @@ class Config(object):
 ######################
 # Config overrides ###
 ######################
-
-
 class Development(Config):
     SERVER_NAME = os.getenv("SERVER_NAME")
 
@@ -89,7 +82,52 @@ class Test(Config):
     LETTERS_SCAN_BUCKET_NAME = "test-letters-pdf"
 
 
+################
+### NotifyNL ###
+################
+NL_PREFIX = "notifynl"
+
+
+class ConfigNL(Config):
+    """
+    Overrides for NotifyNL usage
+    """
+
+    LETTERS_SCAN_BUCKET_NAME = os.getenv("S3_BUCKET_LETTERS_SCAN")
+
+    ANTIVIRUS_MODE = os.getenv("ANTIVIRUS_MODE", "SOCKET")
+    ANTIVIRUS_HOST = os.getenv("CLAMAV_SERVICE_HOST", "127.0.0.1")
+    ANTIVIRUS_PORT = int(os.getenv("CLAMAV_SERVICE_PORT", 3310))
+
+
+class DevNL(ConfigNL):
+    NOTIFY_ENVIRONMENT = "development"
+    DEBUG = True
+
+    ANTIVIRUS_API_KEY = "test-key"
+
+    STATSD_ENABLED = False
+
+    LETTERS_SCAN_BUCKET_NAME = f"{NL_PREFIX}-{NOTIFY_ENVIRONMENT}-letters-scan"
+
+    CELERY = {
+        "broker_url": "amqp://rabbitadmin:rabbitpassword@rabbitmq:5672/notifynl",
+        "timezone": "Europe/London",
+        "imports": ["app.celery.tasks"],
+        "task_queues": [
+            Queue(
+                QueueNames.ANTIVIRUS,
+                Exchange("default"),
+                routing_key=QueueNames.ANTIVIRUS,
+            )
+        ],
+    }
+
+    ANTIVIRUS_MODE = "NETWORK"
+    ANTIVIRUS_HOST = "clamav"
+
+
 configs = {
-    "development": Development,
+    "development": DevNL,
     "test": Test,
 }
