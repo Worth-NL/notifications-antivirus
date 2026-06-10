@@ -1,0 +1,58 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Generate Antivirus version file",
+            "type": "shell",
+            "command": "make generate-version-file",
+            "problemMatcher": [],
+            "presentation": {
+                "showReuseMessage": false,
+                "close": true
+            }
+        },
+        {
+            "label": "Install Antivirus Python requirements",
+            "type": "shell",
+            "command": "uv pip install -r requirements_for_test.txt",
+            "dependsOn": ["Generate Antivirus version file"],
+            "problemMatcher": [],
+            "presentation": {
+                "showReuseMessage": false,
+                "close": true
+            },
+            "options": {
+                "env": {
+                    "UV_LINK_MODE": "copy"
+                }
+            }
+        },
+        {
+            "label": "Install Antivirus local notifynl-utils",
+            "type": "shell",
+            "command": "uv pip uninstall notifynl-utils && uv pip install -e ../notifynl-utils",
+            "dependsOn": ["Install Antivirus Python requirements"],
+            "problemMatcher": [],
+            "presentation": {
+                "showReuseMessage": false,
+                "close": true
+            },
+            "options": {
+                "env": {
+                    "UV_LINK_MODE": "copy"
+                }
+            }
+        },
+        {
+            "label": "Antivirus pre-launch",
+            "type": "shell",
+            "command": "echo \"Antivirus pre-launch\"",
+            "dependsOn": ["Install Antivirus local notifynl-utils"],
+            "problemMatcher": [],
+            "presentation": {
+                "showReuseMessage": false,
+                "close": true
+            },
+        }
+    ]
+}

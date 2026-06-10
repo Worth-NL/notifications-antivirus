@@ -1,0 +1,66 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Antivirus",
+      "type": "debugpy",
+      "request": "launch",
+      "envFile": "${workspaceFolder}/.env",
+      "module": "flask",
+      "args": [
+        "run",
+        "--port",
+        "6015",
+        "--debug"
+      ],
+      "consoleName": "Antivirus",
+      "autoStartBrowser": false,
+      "preLaunchTask": "Antivirus pre-launch"
+    },
+    {
+      "name": "Antivirus worker",
+      "type": "debugpy",
+      "request": "launch",
+      "envFile": "${workspaceFolder}/.env",
+      "module": "celery",
+      "args": [
+        "-A",
+        "run_celery.notify_celery",
+        "worker",
+        "-l",
+        "INFO",
+        "-E",
+        "-P",
+        "solo"
+      ],
+      "consoleName": "Antivirus worker",
+      "preLaunchTask": "Antivirus pre-launch"
+    },
+    {
+      "name": "Beat",
+      "type": "debugpy",
+      "request": "launch",
+      "envFile": "${workspaceFolder}/.env",
+      "module": "celery",
+      "args": [
+        "-A",
+        "run_celery.notify_celery",
+        "beat",
+        "-l",
+        "INFO"
+      ],
+      "consoleName": "Celery beat",
+      "preLaunchTask": "Antivirus pre-launch"
+    }
+  ],
+  "compounds": [
+    {
+        "name": "Notify Antivirus",
+        "configurations": [
+            "Antivirus",
+            "Antivirus worker"
+        ],
+        "stopAll": true
+    }
+  ]
+}
