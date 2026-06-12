@@ -3,14 +3,13 @@ import time
 
 from flask import g, jsonify, request
 from gds_metrics import GDSMetrics
-from notifications_utils import logging, request_helper
+from notifications_utils import request_helper
 from notifications_utils.celery import NotifyCelery
-from notifications_utils.clients.statsd.statsd_client import StatsdClient
+from notifications_utils.logging import flask as utils_logging
 
 from app.commands import setup_commands
 
 notify_celery = NotifyCelery()
-statsd_client = StatsdClient()
 metrics = GDSMetrics()
 
 
@@ -31,8 +30,7 @@ def create_app(application):
     # Metrics intentionally high up to give the most accurate timing and reliability that the metric is recorded
     metrics.init_app(application)
 
-    statsd_client.init_app(application)
-    logging.init_app(application, statsd_client)
+    utils_logging.init_app(application)
     request_helper.init_app(application)
     notify_celery.init_app(application)
 
@@ -50,9 +48,7 @@ def init_app(app):
     @app.after_request
     def after_request(response):
         response.headers.add("Access-Control-Allow-Origin", "*")
-        response.headers.add(
-            "Access-Control-Allow-Headers", "Content-Type,Authorization"
-        )
+        response.headers.add("Access-Control-Allow-Headers", "Content-Type,Authorization")
         response.headers.add("Access-Control-Allow-Methods", "GET,PUT,POST,DELETE")
         return response
 
