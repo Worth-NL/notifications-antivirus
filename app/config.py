@@ -125,25 +125,33 @@ class ConfigNL(Config):
     """
 
     LETTERS_SCAN_BUCKET_NAME = os.getenv("S3_BUCKET_LETTERS_SCAN")
+    MESSAGEBOX_SCAN_BUCKET_NAME = os.getenv("S3_BUCKET_MESSAGEBOX_SCAN")
 
     ANTIVIRUS_MODE = os.getenv("ANTIVIRUS_MODE", "SOCKET")
     ANTIVIRUS_HOST = os.getenv("CLAMAV_SERVICE_HOST", "127.0.0.1")
     ANTIVIRUS_PORT = int(os.getenv("CLAMAV_SERVICE_PORT", 3310))
 
+    TIMEZONE = os.getenv("TZ", "Europe/Amsterdam")
+
 
 class DevNL(ConfigNL):
     NOTIFY_ENVIRONMENT = "development"
     DEBUG = True
+    NOTIFY_LOG_LEVEL = os.getenv("NOTIFY_LOG_LEVEL", "DEBUG")
 
     ANTIVIRUS_API_KEY = "test-key"
 
     STATSD_ENABLED = False
 
     LETTERS_SCAN_BUCKET_NAME = f"{NL_PREFIX}-{NOTIFY_ENVIRONMENT}-letters-scan"
+    MESSAGEBOX_SCAN_BUCKET_NAME = f"{NL_PREFIX}-{NOTIFY_ENVIRONMENT}-messagebox-scan"
+
+    CELERY_WORKER_LOG_LEVEL = "DEBUG"
 
     CELERY = {
         "broker_url": "amqp://rabbitadmin:rabbitpassword@rabbitmq:5672/notifynl",
-        "timezone": "Europe/London",
+        "broker_transport": "amqp",
+        "timezone": ConfigNL.TIMEZONE,
         "imports": ["app.celery.tasks"],
         "task_queues": [
             Queue(

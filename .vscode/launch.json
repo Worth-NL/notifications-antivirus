@@ -10,7 +10,7 @@
       "args": [
         "run",
         "--port",
-        "6015",
+        "6016",
         "--debug"
       ],
       "consoleName": "Antivirus",
@@ -34,22 +34,6 @@
         "solo"
       ],
       "consoleName": "Antivirus worker",
-      "preLaunchTask": "Antivirus pre-launch"
-    },
-    {
-      "name": "Beat",
-      "type": "debugpy",
-      "request": "launch",
-      "envFile": "${workspaceFolder}/.env",
-      "module": "celery",
-      "args": [
-        "-A",
-        "run_celery.notify_celery",
-        "beat",
-        "-l",
-        "INFO"
-      ],
-      "consoleName": "Celery beat",
       "preLaunchTask": "Antivirus pre-launch"
     }
   ],

@@ -1,4 +1,4 @@
-from clamd import ClamdNetworkSocket, ClamdUnixSocket, ClamdError
+from clamd import ClamdError, ClamdNetworkSocket, ClamdUnixSocket
 from flask import current_app
 
 AV_MODE_NETWORK = "NETWORK"
@@ -6,9 +6,7 @@ AV_MODE_SOCKET = "SOCKET"
 
 
 class ClamavClient:
-    def __init__(
-        self, mode: str = AV_MODE_SOCKET, host: str = "127.0.0.1", port: int = 3310
-    ):
+    def __init__(self, mode: str = AV_MODE_SOCKET, host: str = "127.0.0.1", port: int = 3310):
         self.mode = mode
         self.host = host
         self.port = port
