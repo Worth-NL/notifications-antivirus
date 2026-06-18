@@ -119,6 +119,24 @@ class Test(Config):
 NL_PREFIX = "notifynl"
 
 
+class QueueNamesNL(QueueNames):
+    MESSAGEBOX = "messagebox-tasks"
+
+    @staticmethod
+    def all_queues():
+        base_queues = super().all_queues()
+        return base_queues + [QueueNamesNL.MESSAGEBOX]
+
+
+class TaskNames:
+    SCAN_FILE = "scan-file"
+    SCAN_MESSAGEBOX_ATTACHMENTS = "scan-messagebox-attachments"
+    PROCESS_VIRUS_SCAN_FAILED = "process-virus-scan-failed"
+    PROCESS_VIRUS_SCAN_ERROR = "process-virus-scan-error"
+    SANITISE_LETTER = "sanitise-letter"
+    SEND_MESSAGEBOX = "send-messagebox"
+
+
 class ConfigNL(Config):
     """
     Overrides for NotifyNL usage

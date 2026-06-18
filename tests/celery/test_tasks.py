@@ -6,7 +6,7 @@ from celery.exceptions import MaxRetriesExceededError
 from clamd import ClamdError
 
 from app.celery.tasks import scan_file
-from app.config import QueueNames
+from app.config import QueueNames, TaskNames
 
 TEST_FILENAME = "EXAMPLE-SCAN-LETTER.pdf"
 TEST_MESSAGE_GROUP_ID = "test-message-group-id"
@@ -27,7 +27,7 @@ def test_scan_no_virus(notify_antivirus, mocker):
         scan_file(TEST_FILENAME)
 
     mock_send_task.assert_called_once_with(
-        name="sanitise-letter",
+        name=TaskNames.SANITISE_LETTER,
         kwargs={"filename": TEST_FILENAME},
         queue=QueueNames.LETTERS,
         MessageGroupId=TEST_MESSAGE_GROUP_ID,
@@ -43,7 +43,7 @@ def test_scan_virus_detected(notify_antivirus, mocker, caplog):
         scan_file(TEST_FILENAME)
 
     mock_send_task.assert_called_once_with(
-        name="process-virus-scan-failed",
+        name=TaskNames.PROCESS_VIRUS_SCAN_FAILED,
         kwargs={"filename": TEST_FILENAME},
         queue=QueueNames.LETTERS,
         MessageGroupId=TEST_MESSAGE_GROUP_ID,
@@ -80,7 +80,7 @@ def test_scan_virus_max_retries(notify_antivirus, mocker):
         scan_file(TEST_FILENAME)
 
     mock_send_task.assert_called_once_with(
-        name="process-virus-scan-error",
+        name=TaskNames.PROCESS_VIRUS_SCAN_ERROR,
         kwargs={"filename": TEST_FILENAME},
         queue=QueueNames.LETTERS,
         MessageGroupId=TEST_MESSAGE_GROUP_ID,

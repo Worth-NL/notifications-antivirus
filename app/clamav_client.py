@@ -31,7 +31,7 @@ class ClamavClient:
         return True
 
     def scan(self, stream):
-        current_app.logger.info("Function (scan)")
+        current_app.logger.info("Function (scan) [mode: %s, host: %s, port: %s]", self.mode, self.host, self.port)
 
         try:
             result = self.cli.instream(stream)

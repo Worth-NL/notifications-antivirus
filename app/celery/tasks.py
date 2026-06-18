@@ -7,20 +7,28 @@ from flask import current_app
 
 from app import notify_celery
 from app.clamav_client import ClamavClient
-from app.config import QueueNames
-
-cli = ClamavClient()
+from app.config import QueueNames, QueueNamesNL, TaskNames
 
 
-@notify_celery.task(bind=True, name="scan-file", max_retries=5, default_retry_delay=300)
+def get_clamav_client(app):
+    return ClamavClient(
+        mode=app.config["ANTIVIRUS_MODE"],
+        host=app.config["ANTIVIRUS_HOST"],
+        port=app.config["ANTIVIRUS_PORT"],
+    )
+
+
+@notify_celery.task(bind=True, name=TaskNames.SCAN_FILE, max_retries=5, default_retry_delay=300)
 def scan_file(self, filename):
     current_app.logger.info("Scanning file: %s", filename)
 
+    cli = get_clamav_client(current_app)
+
     try:
         if cli.scan(BytesIO(_get_letter_pdf(filename))):
-            task_name = "sanitise-letter"
+            task_name = TaskNames.SANITISE_LETTER
         else:
-            task_name = "process-virus-scan-failed"
+            task_name = TaskNames.PROCESS_VIRUS_SCAN_FAILED
             current_app.logger.info("VIRUS FOUND for file: %s", filename, extra={"file_name": filename})
 
         current_app.logger.info(
@@ -46,7 +54,7 @@ def scan_file(self, filename):
             )
 
             notify_celery.send_task(
-                name="process-virus-scan-error",
+                name=TaskNames.PROCESS_VIRUS_SCAN_ERROR,
                 kwargs={"filename": filename},
                 queue=QueueNames.LETTERS,
                 MessageGroupId=self.message_group_id,
@@ -65,82 +73,78 @@ def _get_letter_pdf(filename):
     return file_content
 
 
-def _get_messagebox_attachments(notification_id: str):
-    # Placeholder for actual implementation to retrieve attachments from messagebox
-    current_app.logger.info("Retrieving attachments for notification: %s", notification_id)
+def _get_messagebox_attachments(notification_id: str) -> list:
+    bucket_name: str = current_app.config["MESSAGEBOX_SCAN_BUCKET_NAME"]
 
-    bucket_name: str = current_app.config["LETTERS_SCAN_BUCKET_NAME"]
+    current_app.logger.info("[%s] Retrieving attachments from bucket: %s", notification_id, bucket_name)
 
     s3 = boto3.resource("s3")
 
-    files = s3.Bucket(bucket_name).objects.filter(Prefix=f"{notification_id}/")
+    files = list(s3.Bucket(bucket_name).objects.filter(Prefix=f"{notification_id}/"))
+    files = [f for f in files if not f.key.endswith("/")]
+
+    current_app.logger.info("[%s] %s attachments found for notification", notification_id, len(files))
 
     return files
 
 
-@notify_celery.task(name="scan-messagebox-attachments", max_retries=5, default_retry_delay=300)
+@notify_celery.task(bind=True, name=TaskNames.SCAN_MESSAGEBOX_ATTACHMENTS, max_retries=5, default_retry_delay=300)
 def scan_messagebox_attachments(self, notification_id: str):
-    current_app.logger.info("Scanning messagebox attachments for notification: %s", notification_id)
+    current_app.logger.info("[%s] scanning messagebox attachments", notification_id)
+
+    cli = get_clamav_client(current_app)
 
     attachments: list[str] = _get_messagebox_attachments(notification_id)
 
-    scan_result = True
+    next_task_name = TaskNames.SEND_MESSAGEBOX
 
     for attachment in attachments:
         try:
             if cli.scan(BytesIO(attachment.get()["Body"].read())):
                 current_app.logger.info(
-                    "✔ Attachment %s for notification %s is clean.",
-                    attachment,
+                    "[%s] attachment [%s] status :: PASSED",
                     notification_id,
+                    attachment,
                     extra={"notification_id": notification_id, "attachment": attachment},
                 )
             else:
                 current_app.logger.warning(
-                    "✗ VIRUS FOUND in attachment %s for notification %s.",
-                    attachment,
+                    "[%s] attachment [%s] status !! VIRUS FOUND",
                     notification_id,
+                    attachment,
                     extra={"notification_id": notification_id, "attachment_key": attachment},
                 )
 
-                scan_result = False
+                next_task_name = TaskNames.PROCESS_VIRUS_SCAN_FAILED
         except clamd.ClamdError as e:
             try:
                 current_app.logger.exception(
-                    "⛒ Scanning error on attachment %s for notification %s: %s",
-                    attachment,
+                    "[%s] error scanning attachment [%s] :: %s",
                     notification_id,
+                    attachment,
                     e,
                     extra={"notification_id": notification_id, "attachment_key": attachment},
                 )
 
-                self.retry(queue=QueueNames.ANTIVIRUS)
+                self.retry(queue=QueueNamesNL.ANTIVIRUS)
             except self.MaxRetriesExceededError:
                 current_app.logger.exception(
-                    "⚠ MAX RETRY EXCEEDED: Task scan_messagebox_attachments failed for attachment %s : notification %s",
-                    attachment,
+                    "[%s] attachment [%s] MAX RETRY EXCEEDED",
                     notification_id,
+                    attachment,
                     extra={"notification_id": notification_id, "attachment_key": attachment},
                 )
 
                 notify_celery.send_task(
-                    name="process-virus-scan-error",
+                    name=TaskNames.PROCESS_VIRUS_SCAN_ERROR,
                     kwargs={"notification_id": notification_id},
-                    queue=QueueNames.MESSAGEBOX,
+                    queue=QueueNamesNL.MESSAGEBOX,
                     MessageGroupId=notification_id,
                 )
 
-        if scan_result:
-            notify_celery.send_task(
-                name="send-messagebox",
-                kwargs={"notification_id": notification_id},
-                queue=QueueNames.MESSAGEBOX,
-                MessageGroupId=notification_id,
-            )
-        else:
-            notify_celery.send_task(
-                name="process-virus-scan-failed",
-                kwargs={"notification_id": notification_id},
-                queue=QueueNames.MESSAGEBOX,
-                MessageGroupId=notification_id,
-            )
+    notify_celery.send_task(
+        name=next_task_name,
+        kwargs={"notification_id": notification_id},
+        queue=QueueNamesNL.MESSAGEBOX,
+        MessageGroupId=notification_id,
+    )
