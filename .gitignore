@@ -142,3 +142,6 @@ environment.sh
 # Ignore all local history of files
 .history
 .ionide
+
+### Misc. ###
+reports/
