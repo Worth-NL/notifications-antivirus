@@ -10,8 +10,6 @@ auth = HTTPTokenAuth()
 
 @main_blueprint.route("/_status")
 def status():
-    current_app.logger.debug("/_status")
-
     av_mode = current_app.config["ANTIVIRUS_MODE"]
     av_host = current_app.config["ANTIVIRUS_HOST"]
     av_port = current_app.config["ANTIVIRUS_PORT"]
@@ -26,16 +24,12 @@ def status():
 
 @auth.verify_token
 def verify_token(token):
-    api_key = current_app.config["ANTIVIRUS_API_KEY"]
-    is_valid = token == api_key
-    current_app.logger.info("Token verification :: %s :: %s :: %s", token, api_key, is_valid)
-    return is_valid
+    return token == current_app.config["ANTIVIRUS_API_KEY"]
 
 
 @main_blueprint.route("/scan", methods=["POST"])
 @auth.login_required
 def scan_document():
-    current_app.logger.info("/scan")
     if "document" not in request.files:
         current_app.logger.error("No document uploaded.")
         return jsonify(error="No document uploaded."), 400

@@ -9,12 +9,10 @@ from clamd import ClamdError
 from app.celery.tasks import _get_messagebox_attachments, scan_messagebox_attachments
 from app.config import QueueNamesNL, TaskNames
 
-TEST_FILENAME_1 = "EXAMPLE-SCAN-LETTER.pdf"
-TEST_FILENAME_2 = "EXAMPLE-SCAN-LETTER-2.pdf"
 TEST_MESSAGE_GROUP_ID = "test-message-group-id"
 NOTIFICATION_ID = "299754b9-0dd3-4151-9480-31af8bbc5ddb"
-TEST_ATTACHMENT_KEY_1 = f"{NOTIFICATION_ID}/attachment1.pdf"
-TEST_ATTACHMENT_KEY_2 = f"{NOTIFICATION_ID}/attachment2.pdf"
+TEST_ATTACHMENT_KEY_1 = f"{NOTIFICATION_ID}/EXAMPLE-SCAN-LETTER.pdf"
+TEST_ATTACHMENT_KEY_2 = f"{NOTIFICATION_ID}/EXAMPLE-SCAN-LETTER-2.pdf"
 TEST_DIRECTORY_KEY = f"{NOTIFICATION_ID}/"
 
 
