@@ -76,6 +76,8 @@ jobs:
           emoji: false
           custom-arguments: --junitxml=reports/pytest-unit.xml
           custom-pytest: uv run pytest
+        env:
+          CLAMAV_SERVICE_HOST: localhost
 
       - uses: dorny/test-reporter@v2
         if: ${{ !cancelled() }}
