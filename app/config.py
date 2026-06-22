@@ -184,7 +184,30 @@ class DevNL(ConfigNL):
     ANTIVIRUS_HOST = "clamav"
 
 
+class TestNL(ConfigNL):
+    NOTIFY_ENVIRONMENT = "test"
+    DEBUG = True
+    NOTIFY_LOG_LEVEL = "INFO"
+
+    ANTIVIRUS_API_KEY = "test-key"
+
+    STATSD_ENABLED = False
+
+    LETTERS_SCAN_BUCKET_NAME = f"{NL_PREFIX}-{NOTIFY_ENVIRONMENT}-letters-scan"
+    MESSAGEBOX_SCAN_BUCKET_NAME = f"{NL_PREFIX}-{NOTIFY_ENVIRONMENT}-messagebox-scan"
+
+    CELERY = {
+        **Config.CELERY,
+        "broker_transport_options": {
+            key: value for key, value in Config.CELERY["broker_transport_options"].items() if key != "predefined_queues"
+        },
+    }
+
+    ANTIVIRUS_MODE = "NETWORK"
+    ANTIVIRUS_HOST = "clamav"
+
+
 configs = {
     "development": DevNL,
-    "test": Test,
+    "test": TestNL,
 }
