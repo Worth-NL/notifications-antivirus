@@ -74,6 +74,17 @@ def test_messagebox_scan_clamav_error_with_retry(notify_antivirus, mocker):
     mock_retry = mocker.patch("app.celery.tasks.scan_messagebox_attachments.retry")
     mock_send_task = mocker.patch("app.notify_celery.send_task")
 
+    scan_messagebox_attachments(NOTIFICATION_ID)
+
+    assert mock_retry.called
+    mock_retry.assert_called_once_with(queue=QueueNamesNL.ANTIVIRUS)
+    mock_send_task.assert_called_once_with(
+        name=TaskNames.SEND_MESSAGEBOX,
+        kwargs={"notification_id": NOTIFICATION_ID},
+        queue=QueueNamesNL.MESSAGEBOX,
+        MessageGroupId=NOTIFICATION_ID,
+    )
+
 
 def test_messagebox_scan_max_retries_exceeded(notify_antivirus, mocker):
     mock_attachment = MagicMock()
