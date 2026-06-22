@@ -203,8 +203,9 @@ class TestNL(ConfigNL):
         },
     }
 
-    ANTIVIRUS_MODE = "NETWORK"
-    ANTIVIRUS_HOST = "clamav"
+    ANTIVIRUS_MODE = os.getenv("ANTIVIRUS_MODE", "NETWORK")
+    ANTIVIRUS_HOST = os.getenv("CLAMAV_SERVICE_HOST", "clamav")
+    ANTIVIRUS_PORT = int(os.getenv("CLAMAV_SERVICE_PORT", 3310))
 
 
 configs = {
