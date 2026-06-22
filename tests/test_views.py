@@ -1,7 +1,7 @@
 import io
 import json
 
-from flask import url_for
+from flask import jsonify, url_for
 
 
 def test_status_when_clamd_is_running(mocker, client):
@@ -9,16 +9,15 @@ def test_status_when_clamd_is_running(mocker, client):
 
     response = client.get(url_for("main.status"))
     assert response.status_code == 200
-    assert response.get_data(as_text=True) == "ok"
+    assert response.get_data() == jsonify(message="Antivirus service is running.").get_data()
 
 
 def test_status_when_clamd_returns_error(mocker, client):
-    # mocker.patch("app.clamav_client.ClamavClient.ping", side_effect=FileNotFoundError())
     mocker.patch("app.clamav_client.ClamavClient.ping", return_value="")
 
     response = client.get(url_for("main.status"))
     assert response.status_code == 500
-    assert response.get_data(as_text=True) == ""
+    assert response.get_data() == jsonify(error="Failed to connect to antivirus service.").get_data()
 
 
 def test_scan_document_no_auth(client, mocker):
