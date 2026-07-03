@@ -112,8 +112,6 @@ class Test(Config):
         },
     }
 
-}
-
 
 ################
 ### NotifyNL ###
