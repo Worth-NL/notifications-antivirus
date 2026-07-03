@@ -1,0 +1,9 @@
+-r requirements_nl.txt
+-r requirements_for_test_common.in
+
+jinja2-cli[yaml]~=0.8
+
+pytest-cov
+# pytest-dotenv
+pytest-md
+pytest-emoji

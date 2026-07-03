@@ -3,21 +3,36 @@ import os
 from kombu import Exchange, Queue
 
 
-class QueueNames(object):
+class QueueNames:
     LETTERS = "letter-tasks"
     ANTIVIRUS = "antivirus-tasks"
 
+    @staticmethod
+    def all_queues():
+        return [
+            QueueNames.LETTERS,
+            QueueNames.ANTIVIRUS,
+        ]
 
-class Config(object):
-    STATSD_ENABLED = True
-    STATSD_HOST = os.getenv("STATSD_HOST")
-    STATSD_PORT = 8125
+    @staticmethod
+    def predefined_queues(prefix, aws_region, aws_account_id):
+        return {
+            f"{prefix}{queue}": {"url": f"https://sqs.{aws_region}.amazonaws.com/{aws_account_id}/{prefix}{queue}"}
+            for queue in QueueNames.all_queues()
+        }
 
+
+class Config:
     # The config option NOTIFY_ENVIRONMENT is purely used for logging.
     # It should not be used for any logical conditionals in the code.
     NOTIFY_ENVIRONMENT = os.environ["NOTIFY_ENVIRONMENT"]
 
+    # Celery log levels
+    CELERY_WORKER_LOG_LEVEL = os.getenv("CELERY_WORKER_LOG_LEVEL", "CRITICAL").upper()
+    CELERY_BEAT_LOG_LEVEL = os.getenv("CELERY_BEAT_LOG_LEVEL", "INFO").upper()
+
     NOTIFICATION_QUEUE_PREFIX = os.getenv("NOTIFICATION_QUEUE_PREFIX")
+    ENABLE_SQS_MESSAGE_GROUP_IDS = os.environ.get("ENABLE_SQS_MESSAGE_GROUP_IDS", "1") == "1"
 
     # Logging
     DEBUG = False
@@ -26,7 +41,6 @@ class Config(object):
     ###########################
     # Default config values ###
     ###########################
-
     NOTIFY_APP_NAME = "antivirus"
     AWS_REGION = os.getenv("AWS_REGION", "eu-west-1")
 
@@ -34,19 +48,16 @@ class Config(object):
 
     ANTIVIRUS_API_KEY = os.getenv("ANTIVIRUS_API_KEY")
 
-    ANTIVIRUS_MODE = os.getenv("ANTIVIRUS_MODE", "SOCKET")
-    ANTIVIRUS_HOST = os.getenv("CLAMAV_SERVICE_HOST", "127.0.0.1")
-    ANTIVIRUS_PORT = int(os.getenv("CLAMAV_SERVICE_PORT", 3310))
-
+    AWS_ACCOUNT_ID = os.environ.get("AWS_ACCOUNT_ID", "123456789012")
     CELERY = {
         "broker_url": "https://sqs.eu-west-1.amazonaws.com",
         "broker_transport": "sqs",
         "broker_transport_options": {
             "region": AWS_REGION,
-            "visibility_timeout": 310,
             "queue_name_prefix": NOTIFICATION_QUEUE_PREFIX,
             "is_secure": True,
             "wait_time_seconds": 20,  # enable long polling, with a wait time of 20 seconds
+            "predefined_queues": QueueNames.predefined_queues(NOTIFICATION_QUEUE_PREFIX, AWS_REGION, AWS_ACCOUNT_ID),
         },
         "timezone": "Europe/London",
         "imports": ["app.celery.tasks"],
@@ -65,31 +76,139 @@ class Config(object):
 ######################
 # Config overrides ###
 ######################
-
-
 class Development(Config):
     SERVER_NAME = os.getenv("SERVER_NAME")
 
+    CELERY_WORKER_LOG_LEVEL = "INFO"
+
     NOTIFICATION_QUEUE_PREFIX = "development"
     DEBUG = True
-    STATSD_ENABLED = False
 
     ANTIVIRUS_API_KEY = "test-key"
 
     LETTERS_SCAN_BUCKET_NAME = "development-letters-scan"
 
+    CELERY = {
+        **Config.CELERY,
+        "broker_transport_options": {
+            key: value for key, value in Config.CELERY["broker_transport_options"].items() if key != "predefined_queues"
+        },
+    }
+
 
 class Test(Config):
     DEBUG = True
-    STATSD_HOST = "localhost"
-    STATSD_PORT = 1000
 
     ANTIVIRUS_API_KEY = "test-key"
 
+    CELERY_WORKER_LOG_LEVEL = "INFO"
+
     LETTERS_SCAN_BUCKET_NAME = "test-letters-pdf"
+
+    CELERY = {
+        **Config.CELERY,
+        "broker_transport_options": {
+            key: value for key, value in Config.CELERY["broker_transport_options"].items() if key != "predefined_queues"
+        },
+    }
+
+
+################
+### NotifyNL ###
+################
+NL_PREFIX = "notifynl"
+
+
+class QueueNamesNL(QueueNames):
+    MESSAGEBOX = "messagebox-tasks"
+
+    @staticmethod
+    def all_queues():
+        base_queues = super().all_queues()
+        return base_queues + [QueueNamesNL.MESSAGEBOX]
+
+
+class TaskNames:
+    SCAN_FILE = "scan-file"
+    SCAN_MESSAGEBOX_ATTACHMENTS = "scan-messagebox-attachments"
+    PROCESS_VIRUS_SCAN_FAILED = "process-virus-scan-failed"
+    PROCESS_VIRUS_SCAN_ERROR = "process-virus-scan-error"
+    SANITISE_LETTER = "sanitise-letter"
+    SEND_MESSAGEBOX = "send-messagebox"
+
+
+class ConfigNL(Config):
+    """
+    Overrides for NotifyNL usage
+    """
+
+    LETTERS_SCAN_BUCKET_NAME = os.getenv("S3_BUCKET_LETTERS_SCAN")
+    MESSAGEBOX_SCAN_BUCKET_NAME = os.getenv("S3_BUCKET_MESSAGEBOX_SCAN")
+
+    ANTIVIRUS_MODE = os.getenv("ANTIVIRUS_MODE", "SOCKET")
+    ANTIVIRUS_HOST = os.getenv("CLAMAV_SERVICE_HOST", "127.0.0.1")
+    ANTIVIRUS_PORT = int(os.getenv("CLAMAV_SERVICE_PORT", 3310))
+
+    TIMEZONE = os.getenv("TZ", "Europe/Amsterdam")
+
+
+class DevNL(ConfigNL):
+    NOTIFY_ENVIRONMENT = "development"
+    DEBUG = True
+    NOTIFY_LOG_LEVEL = os.getenv("NOTIFY_LOG_LEVEL", "DEBUG")
+
+    ANTIVIRUS_API_KEY = "test-key"
+
+    STATSD_ENABLED = False
+
+    LETTERS_SCAN_BUCKET_NAME = f"{NL_PREFIX}-{NOTIFY_ENVIRONMENT}-letters-scan"
+    MESSAGEBOX_SCAN_BUCKET_NAME = f"{NL_PREFIX}-{NOTIFY_ENVIRONMENT}-messagebox-scan"
+
+    CELERY_WORKER_LOG_LEVEL = "DEBUG"
+
+    CELERY = {
+        "broker_url": "amqp://rabbitadmin:rabbitpassword@rabbitmq:5672/notifynl",
+        "broker_transport": "amqp",
+        "timezone": ConfigNL.TIMEZONE,
+        "imports": ["app.celery.tasks"],
+        "task_queues": [
+            Queue(
+                QueueNames.ANTIVIRUS,
+                Exchange("default"),
+                routing_key=QueueNames.ANTIVIRUS,
+            )
+        ],
+    }
+
+    ANTIVIRUS_MODE = "NETWORK"
+    ANTIVIRUS_HOST = "clamav"
+
+
+class TestNL(ConfigNL):
+    NOTIFY_ENVIRONMENT = "test"
+    DEBUG = True
+    NOTIFY_LOG_LEVEL = "INFO"
+
+    ANTIVIRUS_API_KEY = "test-key"
+
+    STATSD_ENABLED = False
+
+    LETTERS_SCAN_BUCKET_NAME = f"{NL_PREFIX}-{NOTIFY_ENVIRONMENT}-letters-scan"
+    MESSAGEBOX_SCAN_BUCKET_NAME = f"{NL_PREFIX}-{NOTIFY_ENVIRONMENT}-messagebox-scan"
+
+    CELERY = {
+        **Config.CELERY,
+        "broker_transport_options": {
+            key: value for key, value in Config.CELERY["broker_transport_options"].items() if key != "predefined_queues"
+        },
+    }
+
+    ANTIVIRUS_MODE = os.getenv("ANTIVIRUS_MODE", "NETWORK")
+    ANTIVIRUS_HOST = os.getenv("CLAMAV_SERVICE_HOST", "clamav")
+    ANTIVIRUS_PORT = int(os.getenv("CLAMAV_SERVICE_PORT", 3310))
 
 
 configs = {
-    "development": Development,
-    "test": Test,
+    "development": DevNL,
+    "test": TestNL,
 }
