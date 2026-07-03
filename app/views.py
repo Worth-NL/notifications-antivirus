@@ -1,8 +1,7 @@
-import clamd
 from flask import Blueprint, current_app, jsonify, request
 from flask_httpauth import HTTPTokenAuth
 
-from app.clamav_client import clamav_scan
+from app.clamav_client import ClamavClient
 
 main_blueprint = Blueprint("main", __name__, url_prefix="")
 
@@ -11,12 +10,16 @@ auth = HTTPTokenAuth()
 
 @main_blueprint.route("/_status")
 def status():
-    try:
-        clamd.ClamdUnixSocket().ping()
-    except Exception:
-        return "", 500
+    av_mode = current_app.config["ANTIVIRUS_MODE"]
+    av_host = current_app.config["ANTIVIRUS_HOST"]
+    av_port = current_app.config["ANTIVIRUS_PORT"]
 
-    return "ok", 200
+    cli = ClamavClient(av_mode, av_host, av_port)
+
+    if cli.ping():
+        return jsonify(message="Antivirus service is running."), 200
+    else:
+        return jsonify(error="Failed to connect to antivirus service."), 500
 
 
 @auth.verify_token
@@ -28,8 +31,18 @@ def verify_token(token):
 @auth.login_required
 def scan_document():
     if "document" not in request.files:
-        return jsonify(error="No document upload"), 400
+        current_app.logger.error("No document uploaded.")
+        return jsonify(error="No document uploaded."), 400
 
-    result = clamav_scan(request.files["document"])
+    av_mode = current_app.config["ANTIVIRUS_MODE"]
+    av_host = current_app.config["ANTIVIRUS_HOST"]
+    av_port = current_app.config["ANTIVIRUS_PORT"]
 
-    return jsonify(ok=result)
+    cli = ClamavClient(av_mode, av_host, av_port)
+
+    result = cli.scan(request.files["document"])
+    response = jsonify(ok=result)
+
+    current_app.logger.info("Response :: %s", response)
+
+    return response

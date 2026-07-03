@@ -6,19 +6,29 @@ from botocore.exceptions import ClientError as BotoClientError
 from flask import current_app
 
 from app import notify_celery
-from app.clamav_client import clamav_scan
-from app.config import QueueNames
+from app.clamav_client import ClamavClient
+from app.config import QueueNames, QueueNamesNL, TaskNames
 
 
-@notify_celery.task(bind=True, name="scan-file", max_retries=5, default_retry_delay=300)
+def get_clamav_client(app):
+    return ClamavClient(
+        mode=app.config["ANTIVIRUS_MODE"],
+        host=app.config["ANTIVIRUS_HOST"],
+        port=app.config["ANTIVIRUS_PORT"],
+    )
+
+
+@notify_celery.task(bind=True, name=TaskNames.SCAN_FILE, max_retries=5, default_retry_delay=300)
 def scan_file(self, filename):
     current_app.logger.info("Scanning file: %s", filename)
 
+    cli = get_clamav_client(current_app)
+
     try:
-        if clamav_scan(BytesIO(_get_letter_pdf(filename))):
-            task_name = "sanitise-letter"
+        if cli.scan(BytesIO(_get_letter_pdf(filename))):
+            task_name = TaskNames.SANITISE_LETTER
         else:
-            task_name = "process-virus-scan-failed"
+            task_name = TaskNames.PROCESS_VIRUS_SCAN_FAILED
             current_app.logger.info("VIRUS FOUND for file: %s", filename, extra={"file_name": filename})
 
         current_app.logger.info(
@@ -27,6 +37,7 @@ def scan_file(self, filename):
             filename,
             extra={"celery_task": task_name, "file_name": filename},
         )
+
         notify_celery.send_task(
             name=task_name,
             kwargs={"filename": filename},
@@ -43,7 +54,7 @@ def scan_file(self, filename):
             )
 
             notify_celery.send_task(
-                name="process-virus-scan-error",
+                name=TaskNames.PROCESS_VIRUS_SCAN_ERROR,
                 kwargs={"filename": filename},
                 queue=QueueNames.LETTERS,
                 MessageGroupId=self.message_group_id,
@@ -60,3 +71,80 @@ def _get_letter_pdf(filename):
     file_content = obj.get()["Body"].read()
 
     return file_content
+
+
+def _get_messagebox_attachments(notification_id: str) -> list:
+    bucket_name: str = current_app.config["MESSAGEBOX_SCAN_BUCKET_NAME"]
+
+    current_app.logger.info("[%s] Retrieving attachments from bucket: %s", notification_id, bucket_name)
+
+    s3 = boto3.resource("s3")
+
+    files = list(s3.Bucket(bucket_name).objects.filter(Prefix=f"{notification_id}/"))
+    files = [f for f in files if not f.key.endswith("/")]
+
+    current_app.logger.info("[%s] %s attachments found for notification", notification_id, len(files))
+
+    return files
+
+
+@notify_celery.task(bind=True, name=TaskNames.SCAN_MESSAGEBOX_ATTACHMENTS, max_retries=5, default_retry_delay=300)
+def scan_messagebox_attachments(self, notification_id: str):
+    current_app.logger.info("[%s] scanning messagebox attachments", notification_id)
+
+    cli = get_clamav_client(current_app)
+
+    attachments: list[str] = _get_messagebox_attachments(notification_id)
+
+    next_task_name = TaskNames.SEND_MESSAGEBOX
+
+    for attachment in attachments:
+        try:
+            if cli.scan(BytesIO(attachment.get()["Body"].read())):
+                current_app.logger.info(
+                    "[%s] attachment [%s] status :: PASSED",
+                    notification_id,
+                    attachment,
+                    extra={"notification_id": notification_id, "attachment": attachment},
+                )
+            else:
+                current_app.logger.warning(
+                    "[%s] attachment [%s] status !! VIRUS FOUND",
+                    notification_id,
+                    attachment,
+                    extra={"notification_id": notification_id, "attachment_key": attachment},
+                )
+
+                next_task_name = TaskNames.PROCESS_VIRUS_SCAN_FAILED
+        except clamd.ClamdError as e:
+            try:
+                current_app.logger.exception(
+                    "[%s] error scanning attachment [%s] :: %s",
+                    notification_id,
+                    attachment,
+                    e,
+                    extra={"notification_id": notification_id, "attachment_key": attachment},
+                )
+
+                self.retry(queue=QueueNamesNL.ANTIVIRUS)
+            except self.MaxRetriesExceededError:
+                current_app.logger.exception(
+                    "[%s] attachment [%s] MAX RETRY EXCEEDED",
+                    notification_id,
+                    attachment,
+                    extra={"notification_id": notification_id, "attachment_key": attachment},
+                )
+
+                notify_celery.send_task(
+                    name=TaskNames.PROCESS_VIRUS_SCAN_ERROR,
+                    kwargs={"notification_id": notification_id},
+                    queue=QueueNamesNL.MESSAGEBOX,
+                    MessageGroupId=notification_id,
+                )
+
+    notify_celery.send_task(
+        name=next_task_name,
+        kwargs={"notification_id": notification_id},
+        queue=QueueNamesNL.MESSAGEBOX,
+        MessageGroupId=notification_id,
+    )
