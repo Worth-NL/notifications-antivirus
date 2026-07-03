@@ -23,7 +23,7 @@ COPY requirements.txt .
 
 RUN echo "Installing python requirements" && \
     python3 -m venv /opt/venv && \
-    /opt/venv/bin/pip install -r requirements.txt
+    /opt/venv/bin/pip install -r requirements_nl.txt
 
 COPY . .
 RUN make generate-version-file  # This file gets copied across
@@ -73,7 +73,8 @@ USER notify
 RUN mkdir -p app
 
 # Install dev/test requirements
-COPY --chown=notify:notify requirements.txt requirements_for_test.txt ./
-RUN make bootstrap
+COPY --chown=notify:notify requirements_nl.txt requirements_nl_test.txt ./
+RUN make generate-version-file
+RUN uv pip install -r requirements_nl_test.txt
 
 COPY --chown=notify:notify . .
