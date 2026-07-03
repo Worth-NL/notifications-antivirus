@@ -112,6 +112,103 @@ class Test(Config):
         },
     }
 
+}
+
+
+################
+### NotifyNL ###
+################
+NL_PREFIX = "notifynl"
+
+
+class QueueNamesNL(QueueNames):
+    MESSAGEBOX = "messagebox-tasks"
+
+    @staticmethod
+    def all_queues():
+        base_queues = super().all_queues()
+        return base_queues + [QueueNamesNL.MESSAGEBOX]
+
+
+class TaskNames:
+    SCAN_FILE = "scan-file"
+    SCAN_MESSAGEBOX_ATTACHMENTS = "scan-messagebox-attachments"
+    PROCESS_VIRUS_SCAN_FAILED = "process-virus-scan-failed"
+    PROCESS_VIRUS_SCAN_ERROR = "process-virus-scan-error"
+    SANITISE_LETTER = "sanitise-letter"
+    SEND_MESSAGEBOX = "send-messagebox"
+
+
+class ConfigNL(Config):
+    """
+    Overrides for NotifyNL usage
+    """
+
+    LETTERS_SCAN_BUCKET_NAME = os.getenv("S3_BUCKET_LETTERS_SCAN")
+    MESSAGEBOX_SCAN_BUCKET_NAME = os.getenv("S3_BUCKET_MESSAGEBOX_SCAN")
+
+    ANTIVIRUS_MODE = os.getenv("ANTIVIRUS_MODE", "SOCKET")
+    ANTIVIRUS_HOST = os.getenv("CLAMAV_SERVICE_HOST", "127.0.0.1")
+    ANTIVIRUS_PORT = int(os.getenv("CLAMAV_SERVICE_PORT", 3310))
+
+    TIMEZONE = os.getenv("TZ", "Europe/Amsterdam")
+
+
+class DevNL(ConfigNL):
+    NOTIFY_ENVIRONMENT = "development"
+    DEBUG = True
+    NOTIFY_LOG_LEVEL = os.getenv("NOTIFY_LOG_LEVEL", "DEBUG")
+
+    ANTIVIRUS_API_KEY = "test-key"
+
+    STATSD_ENABLED = False
+
+    LETTERS_SCAN_BUCKET_NAME = f"{NL_PREFIX}-{NOTIFY_ENVIRONMENT}-letters-scan"
+    MESSAGEBOX_SCAN_BUCKET_NAME = f"{NL_PREFIX}-{NOTIFY_ENVIRONMENT}-messagebox-scan"
+
+    CELERY_WORKER_LOG_LEVEL = "DEBUG"
+
+    CELERY = {
+        "broker_url": "amqp://rabbitadmin:rabbitpassword@rabbitmq:5672/notifynl",
+        "broker_transport": "amqp",
+        "timezone": ConfigNL.TIMEZONE,
+        "imports": ["app.celery.tasks"],
+        "task_queues": [
+            Queue(
+                QueueNames.ANTIVIRUS,
+                Exchange("default"),
+                routing_key=QueueNames.ANTIVIRUS,
+            )
+        ],
+    }
+
+    ANTIVIRUS_MODE = "NETWORK"
+    ANTIVIRUS_HOST = "clamav"
+
+
+class TestNL(ConfigNL):
+    NOTIFY_ENVIRONMENT = "test"
+    DEBUG = True
+    NOTIFY_LOG_LEVEL = "INFO"
+
+    ANTIVIRUS_API_KEY = "test-key"
+
+    STATSD_ENABLED = False
+
+    LETTERS_SCAN_BUCKET_NAME = f"{NL_PREFIX}-{NOTIFY_ENVIRONMENT}-letters-scan"
+    MESSAGEBOX_SCAN_BUCKET_NAME = f"{NL_PREFIX}-{NOTIFY_ENVIRONMENT}-messagebox-scan"
+
+    CELERY = {
+        **Config.CELERY,
+        "broker_transport_options": {
+            key: value for key, value in Config.CELERY["broker_transport_options"].items() if key != "predefined_queues"
+        },
+    }
+
+    ANTIVIRUS_MODE = os.getenv("ANTIVIRUS_MODE", "NETWORK")
+    ANTIVIRUS_HOST = os.getenv("CLAMAV_SERVICE_HOST", "clamav")
+    ANTIVIRUS_PORT = int(os.getenv("CLAMAV_SERVICE_PORT", 3310))
+
 
 configs = {
     "development": DevNL,
