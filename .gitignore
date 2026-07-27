@@ -145,3 +145,4 @@ environment.sh
 
 ### Misc. ###
 reports/
+.ruff_cache/

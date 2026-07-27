@@ -53,6 +53,17 @@
                 "showReuseMessage": false,
                 "close": true
             },
+        },
+        {
+            "label": "Antivirus pre-launch (non-local)",
+            "type": "shell",
+            "command": "echo \"Antivirus pre-launch\"",
+            "dependsOn": ["Install Antivirus Python requirements"],
+            "problemMatcher": [],
+            "presentation": {
+                "showReuseMessage": false,
+                "close": true
+            },
         }
     ]
 }

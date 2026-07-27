@@ -15,10 +15,10 @@ class QueueNames:
         ]
 
     @staticmethod
-    def predefined_queues(prefix, aws_region, aws_account_id):
+    def predefined_queues(prefix, aws_region, aws_account_id, endpoint_url=None):
+        base = endpoint_url or f"https://sqs.{aws_region}.amazonaws.com"
         return {
-            f"{prefix}{queue}": {"url": f"https://sqs.{aws_region}.amazonaws.com/{aws_account_id}/{prefix}{queue}"}
-            for queue in QueueNames.all_queues()
+            f"{prefix}{queue}": {"url": f"{base}/{aws_account_id}/{prefix}{queue}"} for queue in QueueNames.all_queues()
         }
 
 
@@ -113,9 +113,9 @@ class Test(Config):
     }
 
 
-################
-### NotifyNL ###
-################
+##############
+# NotifyNL ###
+##############
 NL_PREFIX = "notifynl"
 
 
@@ -124,17 +124,34 @@ class QueueNamesNL(QueueNames):
 
     @staticmethod
     def all_queues():
-        base_queues = super().all_queues()
-        return base_queues + [QueueNamesNL.MESSAGEBOX]
+        return QueueNames.all_queues() + [QueueNamesNL.MESSAGEBOX]
+
+    @staticmethod
+    def predefined_queues(prefix, aws_region, aws_account_id, endpoint_url=None):
+        base = endpoint_url or f"https://sqs.{aws_region}.amazonaws.com"
+        return {
+            f"{prefix}{queue}": {"url": f"{base}/{aws_account_id}/{prefix}{queue}"}
+            for queue in QueueNamesNL.all_queues()
+        }
 
 
 class TaskNames:
+    # Letters
     SCAN_FILE = "scan-file"
-    SCAN_MESSAGEBOX_ATTACHMENTS = "scan-messagebox-attachments"
     PROCESS_VIRUS_SCAN_FAILED = "process-virus-scan-failed"
     PROCESS_VIRUS_SCAN_ERROR = "process-virus-scan-error"
     SANITISE_LETTER = "sanitise-letter"
-    SEND_MESSAGEBOX = "send-messagebox"
+    # Letter parts (precompiled letters submitted as multiple PDFs to be merged)
+    SCAN_LETTER_PARTS = "scan-letter-parts"
+    SANITISE_LETTER_PARTS = "sanitise-letter-parts"
+    PROCESS_VIRUS_SCAN_FAILED_LETTER_PARTS = "process-virus-scan-failed-letter-parts"
+    PROCESS_VIRUS_SCAN_ERROR_LETTER_PARTS = "process-virus-scan-error-letter-parts"
+    # Messagebox
+    MESSAGEBOX_SCAN_ATTACHMENTS = "messagebox.virus-scan"
+    MESSAGEBOX_VIRUS_SCAN_SUCCESS = "messagebox.virus-scan-success"
+    MESSAGEBOX_VIRUS_SCAN_FAILED = "messagebox.virus-scan-failed"
+    MESSAGEBOX_VIRUS_SCAN_ERROR = "messagebox.virus-scan-error"
+    MESSAGEBOX_DELIVER = "messagebox.deliver"
 
 
 class ConfigNL(Config):
@@ -151,6 +168,8 @@ class ConfigNL(Config):
 
     TIMEZONE = os.getenv("TZ", "Europe/Amsterdam")
 
+    CELERY = {**Config.CELERY, "timezone": TIMEZONE}
+
 
 class DevNL(ConfigNL):
     NOTIFY_ENVIRONMENT = "development"
@@ -163,12 +182,27 @@ class DevNL(ConfigNL):
 
     LETTERS_SCAN_BUCKET_NAME = f"{NL_PREFIX}-{NOTIFY_ENVIRONMENT}-letters-scan"
     MESSAGEBOX_SCAN_BUCKET_NAME = f"{NL_PREFIX}-{NOTIFY_ENVIRONMENT}-messagebox-scan"
+    MESSAGEBOX_ATTACHMENTS_BUCKET_NAME = f"{NL_PREFIX}-{NOTIFY_ENVIRONMENT}-messagebox-attachments"
 
     CELERY_WORKER_LOG_LEVEL = "DEBUG"
 
     CELERY = {
-        "broker_url": "amqp://rabbitadmin:rabbitpassword@rabbitmq:5672/notifynl",
-        "broker_transport": "amqp",
+        "broker_url": "http://ministack:4566",
+        "broker_transport": "sqs",
+        "broker_transport_options": {
+            "region": Config.AWS_REGION,
+            "queue_name_prefix": Config.NOTIFICATION_QUEUE_PREFIX,
+            "is_secure": False,
+            "wait_time_seconds": 20,
+            # ministack's default test account ID (000000000000), not
+            # Config.AWS_ACCOUNT_ID's real-AWS-shaped default.
+            "predefined_queues": QueueNamesNL.predefined_queues(
+                Config.NOTIFICATION_QUEUE_PREFIX,
+                Config.AWS_REGION,
+                "000000000000",
+                endpoint_url="http://ministack:4566",
+            ),
+        },
         "timezone": ConfigNL.TIMEZONE,
         "imports": ["app.celery.tasks"],
         "task_queues": [
@@ -195,6 +229,7 @@ class TestNL(ConfigNL):
 
     LETTERS_SCAN_BUCKET_NAME = f"{NL_PREFIX}-{NOTIFY_ENVIRONMENT}-letters-scan"
     MESSAGEBOX_SCAN_BUCKET_NAME = f"{NL_PREFIX}-{NOTIFY_ENVIRONMENT}-messagebox-scan"
+    MESSAGEBOX_ATTACHMENTS_BUCKET_NAME = f"{NL_PREFIX}-{NOTIFY_ENVIRONMENT}-messagebox-attachments"
 
     CELERY = {
         **Config.CELERY,
@@ -208,7 +243,29 @@ class TestNL(ConfigNL):
     ANTIVIRUS_PORT = int(os.getenv("CLAMAV_SERVICE_PORT", 3310))
 
 
-configs = {
-    "development": DevNL,
-    "test": TestNL,
-}
+class ProdNL(ConfigNL):
+    NOTIFY_ENVIRONMENT = "production"
+    DEBUG = False
+    NOTIFY_LOG_LEVEL = "INFO"
+
+    ANTIVIRUS_API_KEY = os.getenv("ANTIVIRUS_API_KEY", "test-key")
+
+    STATSD_ENABLED = False
+
+    LETTERS_SCAN_BUCKET_NAME = f"{NL_PREFIX}-{NOTIFY_ENVIRONMENT}-letters-scan"
+    MESSAGEBOX_SCAN_BUCKET_NAME = f"{NL_PREFIX}-{NOTIFY_ENVIRONMENT}-messagebox-scan"
+    MESSAGEBOX_ATTACHMENTS_BUCKET_NAME = f"{NL_PREFIX}-{NOTIFY_ENVIRONMENT}-messagebox-attachments"
+
+    CELERY = {
+        **Config.CELERY,
+        "broker_transport_options": {
+            key: value for key, value in Config.CELERY["broker_transport_options"].items() if key != "predefined_queues"
+        },
+    }
+
+    ANTIVIRUS_MODE = os.getenv("ANTIVIRUS_MODE", "NETWORK")
+    ANTIVIRUS_HOST = os.getenv("CLAMAV_SERVICE_HOST", "clamav")
+    ANTIVIRUS_PORT = int(os.getenv("CLAMAV_SERVICE_PORT", 3310))
+
+
+configs = {"development": DevNL, "test": TestNL, "production": ProdNL}

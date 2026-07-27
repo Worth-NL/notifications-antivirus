@@ -35,7 +35,7 @@ def test_messagebox_scan_single_no_virus(notify_antivirus, mocker):
         scan_messagebox_attachments(NOTIFICATION_ID)
 
     mock_send_task.assert_called_once_with(
-        name=TaskNames.SEND_MESSAGEBOX,
+        name=TaskNames.MESSAGEBOX_VIRUS_SCAN_SUCCESS,
         kwargs={"notification_id": NOTIFICATION_ID},
         queue=QueueNamesNL.MESSAGEBOX,
         MessageGroupId=NOTIFICATION_ID,
@@ -55,7 +55,7 @@ def test_messagebox_scan_virus_detected(notify_antivirus, mocker, caplog):
         scan_messagebox_attachments(NOTIFICATION_ID)
 
     mock_send_task.assert_called_once_with(
-        name=TaskNames.PROCESS_VIRUS_SCAN_FAILED,
+        name=TaskNames.MESSAGEBOX_VIRUS_SCAN_FAILED,
         kwargs={"notification_id": NOTIFICATION_ID},
         queue=QueueNamesNL.MESSAGEBOX,
         MessageGroupId=NOTIFICATION_ID,
@@ -79,7 +79,7 @@ def test_messagebox_scan_clamav_error_with_retry(notify_antivirus, mocker):
     assert mock_retry.called
     mock_retry.assert_called_once_with(queue=QueueNamesNL.ANTIVIRUS)
     mock_send_task.assert_called_once_with(
-        name=TaskNames.SEND_MESSAGEBOX,
+        name=TaskNames.MESSAGEBOX_VIRUS_SCAN_SUCCESS,
         kwargs={"notification_id": NOTIFICATION_ID},
         queue=QueueNamesNL.MESSAGEBOX,
         MessageGroupId=NOTIFICATION_ID,
@@ -99,17 +99,8 @@ def test_messagebox_scan_max_retries_exceeded(notify_antivirus, mocker):
     with _with_message_group_id(TEST_MESSAGE_GROUP_ID):
         scan_messagebox_attachments(NOTIFICATION_ID)
 
-    assert mock_send_task.call_count == 2
-
-    mock_send_task.assert_any_call(
-        name=TaskNames.PROCESS_VIRUS_SCAN_ERROR,
-        kwargs={"notification_id": NOTIFICATION_ID},
-        queue=QueueNamesNL.MESSAGEBOX,
-        MessageGroupId=NOTIFICATION_ID,
-    )
-
-    mock_send_task.assert_any_call(
-        name=TaskNames.SEND_MESSAGEBOX,
+    mock_send_task.assert_called_once_with(
+        name=TaskNames.MESSAGEBOX_VIRUS_SCAN_ERROR,
         kwargs={"notification_id": NOTIFICATION_ID},
         queue=QueueNamesNL.MESSAGEBOX,
         MessageGroupId=NOTIFICATION_ID,
@@ -139,7 +130,7 @@ def test_messagebox_scan_multiple_attachments_mixed_results(notify_antivirus, mo
         scan_messagebox_attachments(NOTIFICATION_ID)
 
     mock_send_task.assert_called_once_with(
-        name=TaskNames.PROCESS_VIRUS_SCAN_FAILED,
+        name=TaskNames.MESSAGEBOX_VIRUS_SCAN_FAILED,
         kwargs={"notification_id": NOTIFICATION_ID},
         queue=QueueNamesNL.MESSAGEBOX,
         MessageGroupId=NOTIFICATION_ID,
@@ -157,7 +148,7 @@ def test_messagebox_scan_no_attachments(notify_antivirus, mocker):
         scan_messagebox_attachments(NOTIFICATION_ID)
 
     mock_send_task.assert_called_once_with(
-        name=TaskNames.SEND_MESSAGEBOX,
+        name=TaskNames.MESSAGEBOX_VIRUS_SCAN_SUCCESS,
         kwargs={"notification_id": NOTIFICATION_ID},
         queue=QueueNamesNL.MESSAGEBOX,
         MessageGroupId=NOTIFICATION_ID,
