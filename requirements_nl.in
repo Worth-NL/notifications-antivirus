@@ -33,3 +33,4 @@ opentelemetry-instrumentation-urllib3
 
 # vulnerability patches
 cryptography>=48.0.1
+pypdf>=6.14.2
