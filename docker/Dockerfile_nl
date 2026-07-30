@@ -32,7 +32,6 @@ FROM base AS production
 
 RUN groupadd -r notify && \
     useradd -r -g notify -ms /bin/bash notify && \
-    usermod -a -G clamav notify && \
     chown -R notify:notify /home/vcap
 USER notify
 
@@ -57,6 +56,7 @@ RUN echo "Install OS dependencies for test build" && \
     apt-get update && \
     apt-get upgrade -y && \
     apt-get install -y --no-install-recommends \
+    make \
     git \
     libcurl4-openssl-dev \
     libssl-dev && \
