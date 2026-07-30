@@ -146,6 +146,11 @@ class TaskNames:
     SANITISE_LETTER_PARTS = "sanitise-letter-parts"
     PROCESS_VIRUS_SCAN_FAILED_LETTER_PARTS = "process-virus-scan-failed-letter-parts"
     PROCESS_VIRUS_SCAN_ERROR_LETTER_PARTS = "process-virus-scan-error-letter-parts"
+    # Letter attachments (ad-hoc PDFs submitted alongside a templated letter send)
+    SCAN_LETTER_ATTACHMENTS = "scan-letter-attachments"
+    PROCESS_VIRUS_SCAN_SUCCESS_LETTER_ATTACHMENTS = "process-virus-scan-success-letter-attachments"
+    PROCESS_VIRUS_SCAN_FAILED_LETTER_ATTACHMENTS = "process-virus-scan-failed-letter-attachments"
+    PROCESS_VIRUS_SCAN_ERROR_LETTER_ATTACHMENTS = "process-virus-scan-error-letter-attachments"
     # Messagebox
     MESSAGEBOX_SCAN_ATTACHMENTS = "messagebox.virus-scan"
     MESSAGEBOX_VIRUS_SCAN_SUCCESS = "messagebox.virus-scan-success"

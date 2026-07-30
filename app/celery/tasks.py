@@ -2,6 +2,7 @@ from io import BytesIO
 
 import boto3
 import clamd
+import sentry_sdk
 from botocore.exceptions import ClientError as BotoClientError
 from flask import current_app
 
@@ -147,6 +148,7 @@ def _get_messagebox_attachments(notification_id: str) -> list:
 @notify_celery.task(bind=True, name=TaskNames.MESSAGEBOX_SCAN_ATTACHMENTS, max_retries=5, default_retry_delay=300)
 def scan_messagebox_attachments(self, notification_id: str):
     notification_id = str(notification_id)
+    sentry_sdk.set_tag("notification_id", notification_id)
     current_app.logger.info("[%s] scanning messagebox attachments", notification_id)
 
     cli = get_clamav_client(current_app)
@@ -198,5 +200,78 @@ def scan_messagebox_attachments(self, notification_id: str):
         name=next_task_name,
         kwargs={"notification_id": notification_id},
         queue=QueueNamesNL.MESSAGEBOX,
+        MessageGroupId=notification_id,
+    )
+
+
+def _get_letter_attachment_objects(notification_id: str) -> list:
+    bucket_name: str = current_app.config["LETTERS_SCAN_BUCKET_NAME"]
+
+    current_app.logger.info("[%s] Retrieving letter attachments from bucket: %s", notification_id, bucket_name)
+
+    s3 = boto3.resource("s3")
+
+    files = list(s3.Bucket(bucket_name).objects.filter(Prefix=f"{notification_id}/"))
+    files = [f for f in files if not f.key.endswith("/")]
+
+    current_app.logger.info("[%s] %s letter attachments found for notification", notification_id, len(files))
+
+    return files
+
+
+@notify_celery.task(bind=True, name=TaskNames.SCAN_LETTER_ATTACHMENTS, max_retries=5, default_retry_delay=300)
+def scan_letter_attachments(self, notification_id: str):
+    notification_id = str(notification_id)
+    current_app.logger.info("[%s] scanning letter attachments", notification_id)
+
+    cli = get_clamav_client(current_app)
+
+    attachments: list[str] = _get_letter_attachment_objects(notification_id)
+
+    next_task_name = TaskNames.PROCESS_VIRUS_SCAN_SUCCESS_LETTER_ATTACHMENTS
+
+    for attachment in attachments:
+        try:
+            if cli.scan(BytesIO(attachment.get()["Body"].read())):
+                current_app.logger.info(
+                    "[%s] attachment [%s] status :: PASSED",
+                    notification_id,
+                    attachment,
+                    extra={"notification_id": notification_id, "attachment": attachment},
+                )
+            else:
+                current_app.logger.warning(
+                    "[%s] attachment [%s] status !! VIRUS FOUND",
+                    notification_id,
+                    attachment,
+                    extra={"notification_id": notification_id, "attachment": attachment},
+                )
+
+                next_task_name = TaskNames.PROCESS_VIRUS_SCAN_FAILED_LETTER_ATTACHMENTS
+        except clamd.ClamdError as e:
+            try:
+                current_app.logger.exception(
+                    "[%s] error scanning attachment [%s] :: %s",
+                    notification_id,
+                    attachment,
+                    e,
+                    extra={"notification_id": notification_id, "attachment": attachment},
+                )
+
+                self.retry(queue=QueueNames.ANTIVIRUS)
+            except self.MaxRetriesExceededError:
+                current_app.logger.exception(
+                    "[%s] attachment [%s] MAX RETRY EXCEEDED",
+                    notification_id,
+                    attachment,
+                    extra={"notification_id": notification_id, "attachment": attachment},
+                )
+
+                next_task_name = TaskNames.PROCESS_VIRUS_SCAN_ERROR_LETTER_ATTACHMENTS
+
+    notify_celery.send_task(
+        name=next_task_name,
+        kwargs={"notification_id": notification_id},
+        queue=QueueNames.LETTERS,
         MessageGroupId=notification_id,
     )
