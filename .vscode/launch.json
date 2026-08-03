@@ -38,6 +38,44 @@
       ],
       "consoleName": "Antivirus worker",
       "preLaunchTask": "Antivirus pre-launch"
+    },
+    {
+      "name": "Antivirus (non-local)",
+      "type": "debugpy",
+      "request": "launch",
+      "envFile": "${workspaceFolder}/.env",
+      "module": "flask",
+      "args": [
+        "run",
+        "--port",
+        "6016",
+        "--debug"
+      ],
+      "consoleName": "Antivirus",
+      "autoStartBrowser": false,
+      "preLaunchTask": "Antivirus pre-launch (non-local)"
+    },
+    {
+      "name": "Antivirus worker (non-local)",
+      "type": "debugpy",
+      "request": "launch",
+      "envFile": "${workspaceFolder}/.env",
+      "module": "celery",
+      "args": [
+        "-A",
+        "run_celery.notify_celery",
+        "worker",
+        "-l",
+        "DEBUG",
+        "-E",
+        "-P",
+        "solo",
+        "--without-gossip",
+        "--without-mingle",
+        "--without-heartbeat"
+      ],
+      "consoleName": "Antivirus worker",
+      "preLaunchTask": "Antivirus pre-launch (non-local)"
     }
   ],
   "compounds": [
