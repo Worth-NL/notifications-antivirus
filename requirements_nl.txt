@@ -328,6 +328,7 @@ click==8.4.1 \
     #   click-plugins
     #   click-repl
     #   flask
+    #   notifications-utils
 click-didyoumean==0.3.1 \
     --hash=sha256:4f82fdff0dbe64ef8ab2279bd6aa3f6a99c3b28c05aa09cbfc07c9d7fbb5a463 \
     --hash=sha256:5c4bb6007cfea5f2fd6583a2fb6701a22a41eb98957e63d0fac41c10e7c3117c
@@ -397,7 +398,9 @@ dnspython==2.8.0 \
 eventlet==0.41.0 \
     --hash=sha256:35df85f0ccd3e73effb6fd9f1ceae46b500b966c7da1817289c323a307bd397b \
     --hash=sha256:bc22396093cb4119ff7007776be6a5348a613ccd42eeb0f9519853a6efcbcabe
-    # via gunicorn
+    # via
+    #   gunicorn
+    #   notifications-utils
 flask==3.1.3 \
     --hash=sha256:0ef0e52b8a9cd932855379197dd8f94047b359ca0a78695144304cb45f87c9eb \
     --hash=sha256:f4bcbefc124291925f1a26446da31a5178f9483862233b23c0c96a20701f670c
@@ -692,7 +695,7 @@ mistune==0.8.4 \
     --hash=sha256:59a3429db53c50b5c6bcc8a07f8848cb00d7dc8bdb431a4ab41920d201d4756e \
     --hash=sha256:88a1051873018da288eee8538d476dffe1262495144b33ecb586c4ab266bb8d4
     # via notifications-utils
-notifications-utils @ git+https://github.com/Worth-NL/notifynl-utils.git@f0cea6c0efccf59ff8b6756d9fc2e7b194275830
+notifications-utils @ git+https://github.com/Worth-NL/notifynl-utils.git@0a48d998eb3b735ee511bf7ba97c3ffc35f32056
     # via -r requirements_nl.in
 opentelemetry-api==1.42.1 \
     --hash=sha256:51a69edacadbc03a8950ace1c4c21099cacc538820ac2c9e36277e78cebba714 \
@@ -1132,6 +1135,7 @@ urllib3==2.7.0 \
     #   botocore
     #   celery
     #   kombu
+    #   notifications-utils
     #   requests
     #   sentry-sdk
 vine==5.1.0 \
@@ -1148,7 +1152,9 @@ wcwidth==0.8.1 \
 werkzeug==3.1.8 \
     --hash=sha256:63a77fb8892bf28ebc3178683445222aa500e48ebad5ec77b0ad80f8726b1f50 \
     --hash=sha256:9bad61a4268dac112f1c5cd4630a56ede601b6ed420300677a869083d70a4c44
-    # via flask
+    # via
+    #   flask
+    #   notifications-utils
 wrapt==2.2.1 \
     --hash=sha256:036dfb40128819a751c6f451c6b9c10172c49e4c401aebcdb8ecf2aec1683598 \
     --hash=sha256:03df9ebed4c73ab93fa8c07e3d41d818dfca1852b15731a3de59457b27814624 \

@@ -344,6 +344,7 @@ click==8.4.1 \
     #   click-plugins
     #   click-repl
     #   flask
+    #   notifications-utils
 click-didyoumean==0.3.1 \
     --hash=sha256:4f82fdff0dbe64ef8ab2279bd6aa3f6a99c3b28c05aa09cbfc07c9d7fbb5a463 \
     --hash=sha256:5c4bb6007cfea5f2fd6583a2fb6701a22a41eb98957e63d0fac41c10e7c3117c
@@ -534,6 +535,7 @@ eventlet==0.41.0 \
     # via
     #   -r requirements_nl.txt
     #   gunicorn
+    #   notifications-utils
 execnet==2.1.2 \
     --hash=sha256:63d83bfdd9a23e35b9c6a3261412324f964c2ec8dcd8d3c6916ee9373e0befcd \
     --hash=sha256:67fba928dd5a544b783f6056f449e5e3931a5c378b128bc18501f7ea79e296ec
@@ -862,7 +864,7 @@ mistune==0.8.4 \
     # via
     #   -r requirements_nl.txt
     #   notifications-utils
-notifications-utils @ git+https://github.com/Worth-NL/notifynl-utils.git@f0cea6c0efccf59ff8b6756d9fc2e7b194275830
+notifications-utils @ git+https://github.com/Worth-NL/notifynl-utils.git@0a48d998eb3b735ee511bf7ba97c3ffc35f32056
     # via -r requirements_nl.txt
 opentelemetry-api==1.42.1 \
     --hash=sha256:51a69edacadbc03a8950ace1c4c21099cacc538820ac2c9e36277e78cebba714 \
@@ -1436,6 +1438,7 @@ urllib3==2.7.0 \
     # via
     #   -r requirements_nl.txt
     #   botocore
+    #   notifications-utils
     #   requests
     #   sentry-sdk
 vine==5.1.0 \
@@ -1458,6 +1461,7 @@ werkzeug==3.1.8 \
     # via
     #   -r requirements_nl.txt
     #   flask
+    #   notifications-utils
 wrapt==2.2.1 \
     --hash=sha256:036dfb40128819a751c6f451c6b9c10172c49e4c401aebcdb8ecf2aec1683598 \
     --hash=sha256:03df9ebed4c73ab93fa8c07e3d41d818dfca1852b15731a3de59457b27814624 \
