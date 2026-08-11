@@ -273,4 +273,4 @@ class ProdNL(ConfigNL):
     ANTIVIRUS_PORT = int(os.getenv("CLAMAV_SERVICE_PORT", 3310))
 
 
-configs = {"development": DevNL, "test": TestNL, "production": ProdNL}
+configs = {"development": DevNL, "test": TestNL, "testnl": TestNL, "production": ProdNL}
