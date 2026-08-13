@@ -253,7 +253,7 @@ class ProdNL(ConfigNL):
     DEBUG = False
     NOTIFY_LOG_LEVEL = "INFO"
 
-    ANTIVIRUS_API_KEY = os.getenv("ANTIVIRUS_API_KEY", "test-key")
+    ANTIVIRUS_API_KEY = os.getenv("ANTIVIRUS_API_KEY")
 
     STATSD_ENABLED = False
 
