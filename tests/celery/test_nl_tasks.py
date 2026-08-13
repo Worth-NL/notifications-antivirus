@@ -112,6 +112,112 @@ def test_messagebox_scan_max_retries_exceeded(notify_antivirus, mocker):
     )
 
 
+def test_messagebox_scan_listing_boto_error_with_retry(notify_antivirus, mocker):
+    mocker.patch("app.celery.tasks._get_messagebox_attachments", side_effect=BotoClientError({}, "S3 Error"))
+    mock_retry = mocker.patch("app.celery.tasks.scan_messagebox_attachments.retry")
+    mock_send_task = mocker.patch("app.notify_celery.send_task")
+
+    scan_messagebox_attachments(NOTIFICATION_ID)
+
+    mock_retry.assert_called_once_with(queue=QueueNamesNL.ANTIVIRUS)
+    mock_send_task.assert_not_called()
+
+
+def test_messagebox_scan_listing_boto_error_max_retries(notify_antivirus, mocker):
+    mocker.patch("app.celery.tasks._get_messagebox_attachments", side_effect=BotoClientError({}, "S3 Error"))
+    mocker.patch("app.celery.tasks.scan_messagebox_attachments.retry", side_effect=MaxRetriesExceededError)
+    mock_send_task = mocker.patch("app.notify_celery.send_task")
+
+    with _with_message_group_id(TEST_MESSAGE_GROUP_ID):
+        scan_messagebox_attachments(NOTIFICATION_ID)
+
+    mock_send_task.assert_called_once_with(
+        name=TaskNames.MESSAGEBOX_VIRUS_SCAN_ERROR,
+        kwargs={"notification_id": NOTIFICATION_ID},
+        queue=QueueNamesNL.MESSAGEBOX,
+        MessageGroupId=NOTIFICATION_ID,
+    )
+
+
+def test_messagebox_scan_attachment_boto_error_with_retry(notify_antivirus, mocker):
+    mock_attachment = MagicMock()
+    mock_attachment.key = TEST_ATTACHMENT_KEY_1
+    mock_attachment.get.side_effect = BotoClientError({}, "S3 Error")
+
+    mocker.patch("app.celery.tasks._get_messagebox_attachments", return_value=[mock_attachment])
+    mock_retry = mocker.patch("app.celery.tasks.scan_messagebox_attachments.retry")
+    mocker.patch("app.notify_celery.send_task")
+
+    scan_messagebox_attachments(NOTIFICATION_ID)
+
+    mock_retry.assert_called_once_with(queue=QueueNamesNL.ANTIVIRUS)
+
+
+def test_messagebox_scan_virus_found_before_later_attachment_errors_out(notify_antivirus, mocker):
+    """A confirmed virus must win over a later scan error: MESSAGEBOX_VIRUS_SCAN_FAILED is
+    final/quarantining, MESSAGEBOX_VIRUS_SCAN_ERROR just reschedules the scan, so downgrading
+    a real detection to "error" would leave infected content un-quarantined."""
+    mock_attachment1 = MagicMock()
+    mock_attachment1.key = TEST_ATTACHMENT_KEY_1
+    mock_attachment1.get.return_value = {"Body": MagicMock(read=lambda: b"infected content")}
+
+    mock_attachment2 = MagicMock()
+    mock_attachment2.key = TEST_ATTACHMENT_KEY_2
+    mock_attachment2.get.return_value = {"Body": MagicMock(read=lambda: b"errors every time")}
+
+    def scan_side_effect(content_bytes):
+        content = content_bytes.read()
+        if b"infected" in content:
+            return False
+        raise ClamdError
+
+    mocker.patch("app.celery.tasks._get_messagebox_attachments", return_value=[mock_attachment1, mock_attachment2])
+    mocker.patch("app.clamav_client.ClamavClient.scan", side_effect=scan_side_effect)
+    mocker.patch("app.celery.tasks.scan_messagebox_attachments.retry", side_effect=MaxRetriesExceededError)
+    mock_send_task = mocker.patch("app.notify_celery.send_task")
+
+    with _with_message_group_id(TEST_MESSAGE_GROUP_ID):
+        scan_messagebox_attachments(NOTIFICATION_ID)
+
+    mock_send_task.assert_called_once_with(
+        name=TaskNames.MESSAGEBOX_VIRUS_SCAN_FAILED,
+        kwargs={"notification_id": NOTIFICATION_ID},
+        queue=QueueNamesNL.MESSAGEBOX,
+        MessageGroupId=NOTIFICATION_ID,
+    )
+
+
+def test_messagebox_scan_error_before_later_virus_found(notify_antivirus, mocker):
+    mock_attachment1 = MagicMock()
+    mock_attachment1.key = TEST_ATTACHMENT_KEY_1
+    mock_attachment1.get.return_value = {"Body": MagicMock(read=lambda: b"errors every time")}
+
+    mock_attachment2 = MagicMock()
+    mock_attachment2.key = TEST_ATTACHMENT_KEY_2
+    mock_attachment2.get.return_value = {"Body": MagicMock(read=lambda: b"infected content")}
+
+    def scan_side_effect(content_bytes):
+        content = content_bytes.read()
+        if b"infected" in content:
+            return False
+        raise ClamdError
+
+    mocker.patch("app.celery.tasks._get_messagebox_attachments", return_value=[mock_attachment1, mock_attachment2])
+    mocker.patch("app.clamav_client.ClamavClient.scan", side_effect=scan_side_effect)
+    mocker.patch("app.celery.tasks.scan_messagebox_attachments.retry", side_effect=MaxRetriesExceededError)
+    mock_send_task = mocker.patch("app.notify_celery.send_task")
+
+    with _with_message_group_id(TEST_MESSAGE_GROUP_ID):
+        scan_messagebox_attachments(NOTIFICATION_ID)
+
+    mock_send_task.assert_called_once_with(
+        name=TaskNames.MESSAGEBOX_VIRUS_SCAN_FAILED,
+        kwargs={"notification_id": NOTIFICATION_ID},
+        queue=QueueNamesNL.MESSAGEBOX,
+        MessageGroupId=NOTIFICATION_ID,
+    )
+
+
 def test_messagebox_scan_multiple_attachments_mixed_results(notify_antivirus, mocker, caplog):
     mock_attachment1 = MagicMock()
     mock_attachment1.key = TEST_ATTACHMENT_KEY_1
@@ -291,6 +397,81 @@ def test_letter_attachments_scan_max_retries_exceeded(notify_antivirus, mocker):
 
     mock_send_task.assert_called_once_with(
         name=TaskNames.PROCESS_VIRUS_SCAN_ERROR_LETTER_ATTACHMENTS,
+        kwargs={"notification_id": NOTIFICATION_ID},
+        queue=QueueNames.LETTERS,
+        MessageGroupId=NOTIFICATION_ID,
+    )
+
+
+def test_letter_attachments_scan_listing_boto_error_with_retry(notify_antivirus, mocker):
+    mocker.patch("app.celery.tasks._get_letter_attachment_objects", side_effect=BotoClientError({}, "S3 Error"))
+    mock_retry = mocker.patch("app.celery.tasks.scan_letter_attachments.retry")
+    mock_send_task = mocker.patch("app.notify_celery.send_task")
+
+    scan_letter_attachments(NOTIFICATION_ID)
+
+    mock_retry.assert_called_once_with(queue=QueueNames.ANTIVIRUS)
+    mock_send_task.assert_not_called()
+
+
+def test_letter_attachments_scan_listing_boto_error_max_retries(notify_antivirus, mocker):
+    mocker.patch("app.celery.tasks._get_letter_attachment_objects", side_effect=BotoClientError({}, "S3 Error"))
+    mocker.patch("app.celery.tasks.scan_letter_attachments.retry", side_effect=MaxRetriesExceededError)
+    mock_send_task = mocker.patch("app.notify_celery.send_task")
+
+    with _with_message_group_id(TEST_MESSAGE_GROUP_ID):
+        scan_letter_attachments(NOTIFICATION_ID)
+
+    mock_send_task.assert_called_once_with(
+        name=TaskNames.PROCESS_VIRUS_SCAN_ERROR_LETTER_ATTACHMENTS,
+        kwargs={"notification_id": NOTIFICATION_ID},
+        queue=QueueNames.LETTERS,
+        MessageGroupId=NOTIFICATION_ID,
+    )
+
+
+def test_letter_attachments_scan_attachment_boto_error_with_retry(notify_antivirus, mocker):
+    mock_attachment = MagicMock()
+    mock_attachment.key = TEST_ATTACHMENT_KEY_1
+    mock_attachment.get.side_effect = BotoClientError({}, "S3 Error")
+
+    mocker.patch("app.celery.tasks._get_letter_attachment_objects", return_value=[mock_attachment])
+    mock_retry = mocker.patch("app.celery.tasks.scan_letter_attachments.retry")
+    mocker.patch("app.notify_celery.send_task")
+
+    scan_letter_attachments(NOTIFICATION_ID)
+
+    mock_retry.assert_called_once_with(queue=QueueNames.ANTIVIRUS)
+
+
+def test_letter_attachments_scan_virus_found_before_later_attachment_errors_out(notify_antivirus, mocker):
+    """A confirmed virus must win over a later scan error: PROCESS_VIRUS_SCAN_FAILED_LETTER_ATTACHMENTS is
+    final/quarantining, PROCESS_VIRUS_SCAN_ERROR_LETTER_ATTACHMENTS just reschedules the scan, so downgrading
+    a real detection to "error" would leave infected content un-quarantined."""
+    mock_attachment1 = MagicMock()
+    mock_attachment1.key = TEST_ATTACHMENT_KEY_1
+    mock_attachment1.get.return_value = {"Body": MagicMock(read=lambda: b"infected content")}
+
+    mock_attachment2 = MagicMock()
+    mock_attachment2.key = TEST_ATTACHMENT_KEY_2
+    mock_attachment2.get.return_value = {"Body": MagicMock(read=lambda: b"errors every time")}
+
+    def scan_side_effect(content_bytes):
+        content = content_bytes.read()
+        if b"infected" in content:
+            return False
+        raise ClamdError
+
+    mocker.patch("app.celery.tasks._get_letter_attachment_objects", return_value=[mock_attachment1, mock_attachment2])
+    mocker.patch("app.clamav_client.ClamavClient.scan", side_effect=scan_side_effect)
+    mocker.patch("app.celery.tasks.scan_letter_attachments.retry", side_effect=MaxRetriesExceededError)
+    mock_send_task = mocker.patch("app.notify_celery.send_task")
+
+    with _with_message_group_id(TEST_MESSAGE_GROUP_ID):
+        scan_letter_attachments(NOTIFICATION_ID)
+
+    mock_send_task.assert_called_once_with(
+        name=TaskNames.PROCESS_VIRUS_SCAN_FAILED_LETTER_ATTACHMENTS,
         kwargs={"notification_id": NOTIFICATION_ID},
         queue=QueueNames.LETTERS,
         MessageGroupId=NOTIFICATION_ID,

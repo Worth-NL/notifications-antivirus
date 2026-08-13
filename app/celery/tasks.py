@@ -153,9 +153,31 @@ def scan_messagebox_attachments(self, notification_id: str):
 
     cli = get_clamav_client(current_app)
 
-    attachments: list[str] = _get_messagebox_attachments(notification_id)
-
     next_task_name = TaskNames.MESSAGEBOX_VIRUS_SCAN_SUCCESS
+
+    try:
+        attachments: list[str] = _get_messagebox_attachments(notification_id)
+    except BotoClientError as e:
+        try:
+            current_app.logger.exception(
+                "[%s] error listing attachments :: %s", notification_id, e, extra={"notification_id": notification_id}
+            )
+
+            self.retry(queue=QueueNamesNL.ANTIVIRUS)
+        except self.MaxRetriesExceededError:
+            current_app.logger.exception(
+                "[%s] MAX RETRY EXCEEDED listing attachments",
+                notification_id,
+                extra={"notification_id": notification_id},
+            )
+
+            notify_celery.send_task(
+                name=TaskNames.MESSAGEBOX_VIRUS_SCAN_ERROR,
+                kwargs={"notification_id": notification_id},
+                queue=QueueNamesNL.MESSAGEBOX,
+                MessageGroupId=notification_id,
+            )
+        return
 
     for attachment in attachments:
         try:
@@ -175,7 +197,7 @@ def scan_messagebox_attachments(self, notification_id: str):
                 )
 
                 next_task_name = TaskNames.MESSAGEBOX_VIRUS_SCAN_FAILED
-        except clamd.ClamdError as e:
+        except (clamd.ClamdError, BotoClientError) as e:
             try:
                 current_app.logger.exception(
                     "[%s] error scanning attachment [%s] :: %s",
@@ -194,7 +216,8 @@ def scan_messagebox_attachments(self, notification_id: str):
                     extra={"notification_id": notification_id, "attachment": attachment},
                 )
 
-                next_task_name = TaskNames.MESSAGEBOX_VIRUS_SCAN_ERROR
+                if next_task_name != TaskNames.MESSAGEBOX_VIRUS_SCAN_FAILED:
+                    next_task_name = TaskNames.MESSAGEBOX_VIRUS_SCAN_ERROR
 
     notify_celery.send_task(
         name=next_task_name,
@@ -226,9 +249,34 @@ def scan_letter_attachments(self, notification_id: str):
 
     cli = get_clamav_client(current_app)
 
-    attachments: list[str] = _get_letter_attachment_objects(notification_id)
-
     next_task_name = TaskNames.PROCESS_VIRUS_SCAN_SUCCESS_LETTER_ATTACHMENTS
+
+    try:
+        attachments: list[str] = _get_letter_attachment_objects(notification_id)
+    except BotoClientError as e:
+        try:
+            current_app.logger.exception(
+                "[%s] error listing letter attachments :: %s",
+                notification_id,
+                e,
+                extra={"notification_id": notification_id},
+            )
+
+            self.retry(queue=QueueNames.ANTIVIRUS)
+        except self.MaxRetriesExceededError:
+            current_app.logger.exception(
+                "[%s] MAX RETRY EXCEEDED listing letter attachments",
+                notification_id,
+                extra={"notification_id": notification_id},
+            )
+
+            notify_celery.send_task(
+                name=TaskNames.PROCESS_VIRUS_SCAN_ERROR_LETTER_ATTACHMENTS,
+                kwargs={"notification_id": notification_id},
+                queue=QueueNames.LETTERS,
+                MessageGroupId=notification_id,
+            )
+        return
 
     for attachment in attachments:
         try:
@@ -248,7 +296,7 @@ def scan_letter_attachments(self, notification_id: str):
                 )
 
                 next_task_name = TaskNames.PROCESS_VIRUS_SCAN_FAILED_LETTER_ATTACHMENTS
-        except clamd.ClamdError as e:
+        except (clamd.ClamdError, BotoClientError) as e:
             try:
                 current_app.logger.exception(
                     "[%s] error scanning attachment [%s] :: %s",
@@ -267,7 +315,8 @@ def scan_letter_attachments(self, notification_id: str):
                     extra={"notification_id": notification_id, "attachment": attachment},
                 )
 
-                next_task_name = TaskNames.PROCESS_VIRUS_SCAN_ERROR_LETTER_ATTACHMENTS
+                if next_task_name != TaskNames.PROCESS_VIRUS_SCAN_FAILED_LETTER_ATTACHMENTS:
+                    next_task_name = TaskNames.PROCESS_VIRUS_SCAN_ERROR_LETTER_ATTACHMENTS
 
     notify_celery.send_task(
         name=next_task_name,
