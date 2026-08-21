@@ -1,6 +1,8 @@
 {
+    "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
     "python.testing.pytestEnabled": true,
     "python.terminal.useEnvFile": true,
+    "python.defaultInterpreterPath": ".venv/bin/python",
     "python-envs.pythonProjects": [
         {
             "path": ".",
