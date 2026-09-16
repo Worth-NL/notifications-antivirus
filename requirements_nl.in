@@ -31,5 +31,5 @@ opentelemetry-instrumentation-redis
 opentelemetry-instrumentation-requests
 opentelemetry-instrumentation-urllib3
 
-# vulnerability patches
-pypdf>=6.15.0
+# [NOTIFYNL] vulnerability pins
+pypdf>=6.16.1
