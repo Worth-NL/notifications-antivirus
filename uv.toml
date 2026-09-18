@@ -2,12 +2,5 @@
 
 exclude-newer = "7 days"
 
-# TEMPORARY: pypdf 6.15.0 (2026-08-06) is the only release clean of
-# GHSA-fwg2-594c-jp42/GHSA-fp3f-mc75-235c, but it's still inside the 7-day
-# window above. Remove this override once it ages out (~2026-08-13) or once
-# a newer clean release is >7 days old, whichever comes first.
-[exclude-newer-package]
-pypdf = "2026-08-07T00:00:00Z"
-
 [pip]
 generate-hashes = true

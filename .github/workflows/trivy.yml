@@ -35,7 +35,7 @@ jobs:
 
       - uses: docker/setup-buildx-action@v3
 
-      - name: Build production image (local only — not pushed, scan target only)
+      - name: Build production image
         uses: docker/build-push-action@v6
         with:
           file: docker/Dockerfile_nl
@@ -46,18 +46,18 @@ jobs:
           target: production
 
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@7b7aa264d83dc58691451798b4d117d53d21edfe
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: '${{ env.IMAGE }}:${{ github.sha }}'
           scanners: 'vuln,misconfig,secret'
           format: 'template'
           template: '@/contrib/sarif.tpl'
           output: 'trivy-results.sarif'
-          severity: 'LOW,MEDIUM,CRITICAL,HIGH'
+          severity: 'UNKNOWN,LOW,MEDIUM,CRITICAL,HIGH'
           ignore-unfixed: true
           exit-code: '0'
 
-      - name: Upload Trivy scan results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@v3
+      - name: Upload Trivy scan results
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: 'trivy-results.sarif'
