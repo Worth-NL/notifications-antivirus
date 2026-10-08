@@ -14,7 +14,7 @@
         {
             "label": "Install Antivirus Python requirements",
             "type": "shell",
-            "command": "uv pip install -r requirements_nl_test.txt",
+            "command": "uv pip sync requirements_nl_test.txt",
             "dependsOn": ["Generate Antivirus version file"],
             "problemMatcher": [],
             "presentation": {
@@ -30,7 +30,7 @@
         {
             "label": "Install Antivirus local notifynl-utils",
             "type": "shell",
-            "command": "uv pip uninstall notifynl-utils && uv pip install -e ../notifynl-utils",
+            "command": "CHOICE=$(cat /workspace/.local-editables-choice 2>/dev/null || echo No); if [ \"$CHOICE\" = \"Yes\" ]; then uv pip uninstall notifications-utils && uv pip install -e ../notifynl-utils; fi",
             "dependsOn": ["Install Antivirus Python requirements"],
             "problemMatcher": [],
             "presentation": {
