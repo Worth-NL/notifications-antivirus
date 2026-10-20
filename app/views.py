@@ -1,3 +1,4 @@
+from clamd import ClamdError
 from flask import Blueprint, current_app, jsonify, request
 from flask_httpauth import HTTPTokenAuth
 
@@ -8,15 +9,26 @@ main_blueprint = Blueprint("main", __name__, url_prefix="")
 auth = HTTPTokenAuth()
 
 
+def get_clamav_client():
+    return ClamavClient(
+        current_app.config["ANTIVIRUS_MODE"],
+        current_app.config["ANTIVIRUS_HOST"],
+        current_app.config["ANTIVIRUS_PORT"],
+        current_app.config["ANTIVIRUS_SOCKET_TIMEOUT"],
+    )
+
+
 @main_blueprint.route("/_status")
 def status():
-    av_mode = current_app.config["ANTIVIRUS_MODE"]
-    av_host = current_app.config["ANTIVIRUS_HOST"]
-    av_port = current_app.config["ANTIVIRUS_PORT"]
+    # Liveness/readiness of this app only. It deliberately doesn't check ClamAV: every pod depends on the
+    # same clamd, so restarting or unreadying them during a ClamAV outage fixes nothing. /scan answers
+    # 503 then instead, and /_status/clamav reports ClamAV's own health.
+    return jsonify(message="Antivirus API is running."), 200
 
-    cli = ClamavClient(av_mode, av_host, av_port)
 
-    if cli.ping():
+@main_blueprint.route("/_status/clamav")
+def clamav_status():
+    if get_clamav_client().ping():
         return jsonify(message="Antivirus service is running."), 200
     else:
         return jsonify(error="Failed to connect to antivirus service."), 500
@@ -34,13 +46,13 @@ def scan_document():
         current_app.logger.error("No document uploaded.")
         return jsonify(error="No document uploaded."), 400
 
-    av_mode = current_app.config["ANTIVIRUS_MODE"]
-    av_host = current_app.config["ANTIVIRUS_HOST"]
-    av_port = current_app.config["ANTIVIRUS_PORT"]
+    try:
+        result = get_clamav_client().scan(request.files["document"])
+    except ClamdError:
+        # Not a verdict: tell the caller to try again later rather than that the file is infected.
+        # Returned explicitly because the app-wide error handler answers 200.
+        return jsonify(error="Antivirus service unavailable."), 503
 
-    cli = ClamavClient(av_mode, av_host, av_port)
-
-    result = cli.scan(request.files["document"])
     response = jsonify(ok=result)
 
     current_app.logger.info("Response :: %s", response)
