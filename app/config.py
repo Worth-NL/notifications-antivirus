@@ -118,6 +118,10 @@ class Test(Config):
 ##############
 NL_PREFIX = "notifynl"
 
+# Ack a scan only once it has finished, and requeue it if the worker dies mid-scan (OOM, eviction,
+# deploy), so SQS redelivers it after the visibility timeout instead of the message being lost.
+CELERY_ACK_AFTER_SCAN = {"task_acks_late": True, "task_reject_on_worker_lost": True}
+
 
 class QueueNamesNL(QueueNames):
     MESSAGEBOX = "messagebox-tasks"
@@ -170,10 +174,13 @@ class ConfigNL(Config):
     ANTIVIRUS_MODE = os.getenv("ANTIVIRUS_MODE", "SOCKET")
     ANTIVIRUS_HOST = os.getenv("CLAMAV_SERVICE_HOST", "127.0.0.1")
     ANTIVIRUS_PORT = int(os.getenv("CLAMAV_SERVICE_PORT", 3310))
+    # Seconds a clamd socket read or send may block before it raises. Without it a stalled clamd
+    # holds a worker process forever. Generous, since a scan of a large PDF takes a while.
+    ANTIVIRUS_SOCKET_TIMEOUT = float(os.getenv("ANTIVIRUS_SOCKET_TIMEOUT", 120))
 
     TIMEZONE = os.getenv("TZ", "Europe/Amsterdam")
 
-    CELERY = {**Config.CELERY, "timezone": TIMEZONE}
+    CELERY = {**Config.CELERY, **CELERY_ACK_AFTER_SCAN, "timezone": TIMEZONE}
 
 
 class DevNL(ConfigNL):
@@ -206,6 +213,7 @@ class DevNL(ConfigNL):
                 endpoint_url="http://ministack:4566",
             ),
         },
+        **CELERY_ACK_AFTER_SCAN,
         "timezone": ConfigNL.TIMEZONE,
         "imports": ["app.celery.tasks"],
         "task_queues": [
@@ -234,6 +242,7 @@ class TestNL(ConfigNL):
 
     CELERY = {
         **Config.CELERY,
+        **CELERY_ACK_AFTER_SCAN,
         "broker_transport_options": {
             key: value for key, value in Config.CELERY["broker_transport_options"].items() if key != "predefined_queues"
         },
@@ -257,6 +266,7 @@ class ProdNL(ConfigNL):
 
     CELERY = {
         **Config.CELERY,
+        **CELERY_ACK_AFTER_SCAN,
         "broker_transport_options": {
             key: value for key, value in Config.CELERY["broker_transport_options"].items() if key != "predefined_queues"
         },
