@@ -1,15 +1,19 @@
 from contextlib import contextmanager
 from unittest.mock import MagicMock, patch
 
+import clamd
 import pytest
 from botocore.exceptions import ClientError as BotoClientError
 from celery.exceptions import MaxRetriesExceededError
 from clamd import ClamdError
 
 from app.celery.tasks import (
+    CLAMAV_UNAVAILABLE_MAX_RETRIES,
     _get_letter_attachment_objects,
     _get_messagebox_attachments,
+    scan_file,
     scan_letter_attachments,
+    scan_letter_parts,
     scan_messagebox_attachments,
 )
 from app.config import QueueNames, QueueNamesNL, TaskNames
@@ -576,3 +580,63 @@ def test_get_letter_attachment_objects_s3_error(notify_antivirus, mocker):
 
         with pytest.raises(BotoClientError):
             _get_letter_attachment_objects(NOTIFICATION_ID)
+
+
+# The tests below run the real ClamavClient with only the clamd socket failing, so an error swallowed
+# anywhere between the socket and the task's retry shows up here instead of as a false virus verdict.
+
+
+class _Retry(Exception):
+    pass
+
+
+def _attachment():
+    attachment = MagicMock()
+    attachment.key = TEST_ATTACHMENT_KEY_1
+    attachment.get.return_value = {"Body": MagicMock(read=lambda: b"test content")}
+    return attachment
+
+
+def _run_scan_task(mocker, task_name):
+    mocker.patch("app.celery.tasks._get_letter_pdf", return_value=b"test")
+    mocker.patch("app.celery.tasks._get_messagebox_attachments", return_value=[_attachment()])
+    mocker.patch("app.celery.tasks._get_letter_attachment_objects", return_value=[_attachment()])
+    task, arg = {
+        "scan_file": (scan_file, "EXAMPLE-SCAN-LETTER.pdf"),
+        "scan_letter_parts": (scan_letter_parts, ["EXAMPLE-SCAN-LETTER.pdf", "EXAMPLE-SCAN-LETTER.PART2.pdf"]),
+        "scan_messagebox_attachments": (scan_messagebox_attachments, NOTIFICATION_ID),
+        "scan_letter_attachments": (scan_letter_attachments, NOTIFICATION_ID),
+    }[task_name]
+    # Like the real Task.retry, raise so the task stops where it would in production.
+    mock_retry = mocker.patch.object(task, "retry", side_effect=_Retry)
+    mock_send_task = mocker.patch("app.notify_celery.send_task")
+
+    with pytest.raises(_Retry):
+        task(arg)
+
+    return mock_retry, mock_send_task
+
+
+SCAN_TASKS = ["scan_file", "scan_letter_parts", "scan_messagebox_attachments", "scan_letter_attachments"]
+
+
+@pytest.mark.parametrize("task_name", SCAN_TASKS)
+def test_scan_retries_for_a_day_when_clamav_unreachable(notify_antivirus, mocker, task_name):
+    mocker.patch("socket.socket.connect", side_effect=ConnectionRefusedError(111, "Connection refused"))
+
+    mock_retry, mock_send_task = _run_scan_task(mocker, task_name)
+
+    assert mock_retry.call_args.kwargs["max_retries"] == CLAMAV_UNAVAILABLE_MAX_RETRIES
+    mock_send_task.assert_not_called()
+
+
+@pytest.mark.parametrize("task_name", SCAN_TASKS)
+def test_scan_retries_when_clamav_cannot_scan(notify_antivirus, mocker, task_name):
+    # A deterministic clamd error is not an outage: it keeps the task's own retry limit.
+    mocker.patch("clamd.ClamdNetworkSocket.instream", side_effect=clamd.BufferTooLongError("size limit exceeded"))
+    mocker.patch("clamd.ClamdUnixSocket.instream", side_effect=clamd.BufferTooLongError("size limit exceeded"))
+
+    mock_retry, mock_send_task = _run_scan_task(mocker, task_name)
+
+    assert "max_retries" not in mock_retry.call_args.kwargs
+    mock_send_task.assert_not_called()

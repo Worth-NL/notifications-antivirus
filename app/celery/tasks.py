@@ -16,7 +16,20 @@ def get_clamav_client(app):
         mode=app.config["ANTIVIRUS_MODE"],
         host=app.config["ANTIVIRUS_HOST"],
         port=app.config["ANTIVIRUS_PORT"],
+        timeout=app.config["ANTIVIRUS_SOCKET_TIMEOUT"],
     )
+
+
+# [NotifyNL] clamd being unreachable is an outage, not a verdict on the file, so a scan keeps retrying
+# (every default_retry_delay, 300s) for about a day before the error result goes back to the API. Other
+# errors keep the task's own max_retries.
+CLAMAV_UNAVAILABLE_MAX_RETRIES = 288
+
+
+def _retry_options(error):
+    if isinstance(error, clamd.ConnectionError):
+        return {"max_retries": CLAMAV_UNAVAILABLE_MAX_RETRIES}
+    return {}
 
 
 @notify_celery.task(bind=True, name=TaskNames.SCAN_FILE, max_retries=5, default_retry_delay=300)
@@ -48,7 +61,7 @@ def scan_file(self, filename):
     except (clamd.ClamdError, BotoClientError) as e:
         try:
             current_app.logger.exception("Scanning error on file %s: %s", filename, e, extra={"file_name": filename})
-            self.retry(queue=QueueNames.ANTIVIRUS)
+            self.retry(queue=QueueNames.ANTIVIRUS, **_retry_options(e))
         except self.MaxRetriesExceededError:
             current_app.logger.exception(
                 "MAX RETRY EXCEEDED: Task scan_file failed for file: %s", filename, extra={"file_name": filename}
@@ -101,7 +114,7 @@ def scan_letter_parts(self, filenames):
             current_app.logger.exception(
                 "Scanning error on letter parts %s: %s", filenames, e, extra={"filenames": filenames}
             )
-            self.retry(queue=QueueNames.ANTIVIRUS)
+            self.retry(queue=QueueNames.ANTIVIRUS, **_retry_options(e))
         except self.MaxRetriesExceededError:
             current_app.logger.exception(
                 "MAX RETRY EXCEEDED: Task scan_letter_parts failed for: %s", filenames, extra={"filenames": filenames}
@@ -207,7 +220,7 @@ def scan_messagebox_attachments(self, notification_id: str):
                     extra={"notification_id": notification_id, "attachment": attachment},
                 )
 
-                self.retry(queue=QueueNamesNL.ANTIVIRUS)
+                self.retry(queue=QueueNamesNL.ANTIVIRUS, **_retry_options(e))
             except self.MaxRetriesExceededError:
                 current_app.logger.exception(
                     "[%s] attachment [%s] MAX RETRY EXCEEDED",
@@ -306,7 +319,7 @@ def scan_letter_attachments(self, notification_id: str):
                     extra={"notification_id": notification_id, "attachment": attachment},
                 )
 
-                self.retry(queue=QueueNames.ANTIVIRUS)
+                self.retry(queue=QueueNames.ANTIVIRUS, **_retry_options(e))
             except self.MaxRetriesExceededError:
                 current_app.logger.exception(
                     "[%s] attachment [%s] MAX RETRY EXCEEDED",
