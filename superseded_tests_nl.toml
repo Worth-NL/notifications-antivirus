@@ -41,10 +41,13 @@ twin = ["tests/test_views_nl.py::test_scan_virus_document"]
 
 [[test]]
 nodeid = "tests/test_views.py::test_status_when_clamd_is_running"
-reason = "NL's status endpoint answers with a JSON message and checks clamd through ClamavClient.ping"
+reason = "NL checks clamd at /_status/clamav, through ClamavClient.ping, and answers with a JSON message"
 counterpart = ["tests/test_views_nl.py::test_status_when_clamd_is_running"]
 
 [[test]]
 nodeid = "tests/test_views.py::test_status_when_clamd_returns_error"
-reason = "NL's status endpoint answers with a JSON message and checks clamd through ClamavClient.ping"
-counterpart = ["tests/test_views_nl.py::test_status_when_clamd_returns_error"]
+reason = "NL checks clamd at /_status/clamav, so /_status keeps answering 200 while ClamAV is down"
+counterpart = [
+  "tests/test_views_nl.py::test_status_when_clamd_returns_error",
+  "tests/test_views_nl.py::test_status_does_not_depend_on_clamav",
+]
