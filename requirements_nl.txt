@@ -693,7 +693,7 @@ mistune==3.3.3 \
     --hash=sha256:99de1585e42dcbd826faa9e11a202727a5e202e4e4722a4c69ac1ff615793dd7 \
     --hash=sha256:c4c6c0c840b8637a2e9b8b6d607eb7c8f00888bf14c754409bcd339e848c2477
     # via notifications-utils
-notifications-utils @ git+https://github.com/Worth-NL/notifynl-utils.git@754687eb4a4ae99354133ab3835a21f56cf9a943
+notifications-utils @ git+https://github.com/Worth-NL/notifynl-utils.git@020528e636ef624f33ec3916fe1ead68218e7a9a
     # via -r requirements_nl.in
 opentelemetry-api==1.45.0 \
     --hash=sha256:711ede81773c8025c2c03dac0450bc89f3d30aea6eabcc815c570d4e35a963f7 \

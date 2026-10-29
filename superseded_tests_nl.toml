@@ -1,0 +1,53 @@
+# Upstream (alphagov) tests that don't hold for NotifyNL, each with the NL test(s) that replace it - see conftest.py.
+#
+# tests/test_clamav_client.py is deliberately not listed: upstream's version imports `clamav_scan`, which NotifyNL
+# replaced with the ClamavClient class, so the module fails at import and the plugin can't hide its tests. That file
+# stays edited in place instead, see the comment at its top.
+
+[[test]]
+nodeid = "tests/celery/test_tasks.py::test_scan_no_virus"
+reason = "NL scans through ClamavClient instead of clamav_scan"
+twin = ["tests/celery/test_tasks_nl.py::test_scan_no_virus"]
+
+[[test]]
+nodeid = "tests/celery/test_tasks.py::test_scan_virus_clamav_error"
+reason = "NL scans through ClamavClient instead of clamav_scan"
+twin = ["tests/celery/test_tasks_nl.py::test_scan_virus_clamav_error"]
+
+[[test]]
+nodeid = "tests/celery/test_tasks.py::test_scan_virus_detected"
+reason = "NL scans through ClamavClient instead of clamav_scan"
+twin = ["tests/celery/test_tasks_nl.py::test_scan_virus_detected"]
+
+[[test]]
+nodeid = "tests/test_views.py::test_scan_document"
+reason = "NL scans through ClamavClient instead of clamav_scan"
+twin = ["tests/test_views_nl.py::test_scan_document"]
+
+[[test]]
+nodeid = "tests/test_views.py::test_scan_document_invalid_auth"
+reason = "NL scans through ClamavClient instead of clamav_scan"
+twin = ["tests/test_views_nl.py::test_scan_document_invalid_auth"]
+
+[[test]]
+nodeid = "tests/test_views.py::test_scan_document_no_auth"
+reason = "NL scans through ClamavClient instead of clamav_scan"
+twin = ["tests/test_views_nl.py::test_scan_document_no_auth"]
+
+[[test]]
+nodeid = "tests/test_views.py::test_scan_virus_document"
+reason = "NL scans through ClamavClient instead of clamav_scan"
+twin = ["tests/test_views_nl.py::test_scan_virus_document"]
+
+[[test]]
+nodeid = "tests/test_views.py::test_status_when_clamd_is_running"
+reason = "NL checks clamd at /_status/clamav, through ClamavClient.ping, and answers with a JSON message"
+counterpart = ["tests/test_views_nl.py::test_status_when_clamd_is_running"]
+
+[[test]]
+nodeid = "tests/test_views.py::test_status_when_clamd_returns_error"
+reason = "NL checks clamd at /_status/clamav, so /_status keeps answering 200 while ClamAV is down"
+counterpart = [
+  "tests/test_views_nl.py::test_status_when_clamd_returns_error",
+  "tests/test_views_nl.py::test_status_does_not_depend_on_clamav",
+]

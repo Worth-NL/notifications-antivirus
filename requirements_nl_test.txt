@@ -864,7 +864,7 @@ mistune==3.3.3 \
     # via
     #   -r requirements_nl.txt
     #   notifications-utils
-notifications-utils @ git+https://github.com/Worth-NL/notifynl-utils.git@754687eb4a4ae99354133ab3835a21f56cf9a943
+notifications-utils @ git+https://github.com/Worth-NL/notifynl-utils.git@020528e636ef624f33ec3916fe1ead68218e7a9a
     # via -r requirements_nl.txt
 opentelemetry-api==1.45.0 \
     --hash=sha256:711ede81773c8025c2c03dac0450bc89f3d30aea6eabcc815c570d4e35a963f7 \
